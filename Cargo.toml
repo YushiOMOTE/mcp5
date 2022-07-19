@@ -1,0 +1,11 @@
+[package]
+name = "gf"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+macroquad = "0.3"
+legion = { version = "0.4", default-features = false, features = ["wasm-bindgen", "codegen", "stdweb"] }
+derive_deref = "1.1.1"
