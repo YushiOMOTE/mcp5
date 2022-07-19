@@ -60,6 +60,15 @@ pub fn to_rect(pos: Position, size: Size) -> Rect {
     Rect::new(pos.x, pos.y, size.x, size.y)
 }
 
+pub fn to_inner_rect(rect: Rect) -> Rect {
+    assert!(rect.w > 2.0 && rect.h > 2.0);
+    Rect::new(rect.x + 1.0, rect.y + 1.0, rect.w - 2.0, rect.h - 2.0)
+}
+
+pub fn center(rect: Rect) -> Vec2 {
+    rect.point() + rect.size() / 2.0
+}
+
 #[derive(Clone, Debug)]
 pub struct Sprite {
     color: Color,
@@ -130,30 +139,66 @@ fn player_block_collision(world: &mut SubWorld, players: &mut Query<(&mut Positi
     for (pos, size, _) in players.iter_mut(world) {
         for block_rect in &blocks {
             let player_rect = to_rect(*pos, *size);
-            adjust_player_rect(pos, &player_rect, block_rect);
+            let margin = Vec2::new(player_rect.w * 0.45, player_rect.h * 0.45);
+            adjust_player_rect(pos, &player_rect, block_rect, margin);
         }
     }
 }
 
-fn adjust_player_rect(pos: &mut Position, player_rect: &Rect, block_rect: &Rect) {
+fn adjust_player_rect(pos: &mut Position, player_rect: &Rect, block_rect: &Rect, margin: Vec2) {
+    // collision detection with smaller rectangle otherwise player gets stuck for excessive collision due to rounding errors
+    if !to_inner_rect(*player_rect).overlaps(&to_inner_rect(*block_rect)) {
+        return;
+    }
+
     let overlap = match player_rect.intersect(*block_rect) {
         Some(rect) => rect,
         None => return
     };
 
-    let center = player_rect.point() + player_rect.size() / 2.0;
+    let player_center = center(*player_rect);
+    let touch_up = overlap.y <= player_center.y;
+    let touch_right = overlap.x <= player_center.x;
 
     if overlap.w < overlap.h {
-        if overlap.x <= center.x {
+        if touch_right {
             pos.x += overlap.w;
         } else {
             pos.x -= overlap.w;
         }
+        assert!(margin.y < player_rect.h / 2.0);
+        if overlap.h <= margin.y {
+            if touch_up {
+                pos.y += overlap.h;
+            } else {
+                pos.y -= overlap.h;
+            }
+        } else if overlap.h >= player_rect.h - margin.y {
+            if player_rect.y <= block_rect.y {
+                pos.y += player_rect.h - overlap.h;
+            } else {
+                pos.y -= player_rect.h - overlap.h;
+            }
+        }
     } else {
-        if overlap.y <= center.y {
+        if touch_up {
             pos.y += overlap.h;
         } else {
             pos.y -= overlap.h;
+        }
+        assert!(margin.x < player_rect.w / 2.0);
+        if overlap.w <= margin.x {
+            if touch_right {
+                pos.x += overlap.w;
+            } else {
+                pos.x -= overlap.w;
+            }
+        } else if overlap.w >= player_rect.w - margin.x {
+            if player_rect.x <= block_rect.x {
+                pos.x += player_rect.w - overlap.w;
+            } else {
+                pos.x -= player_rect.w - overlap.w;
+            }
         }
     }
 }
