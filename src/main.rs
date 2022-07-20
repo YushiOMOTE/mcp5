@@ -1,103 +1,82 @@
-use derive_deref::{Deref, DerefMut};
 use legion::*;
 use legion::world::SubWorld;
 use macroquad::prelude::*;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
-}
+use components::{Direction, Position, Size, Sprite, Velocity};
 
-impl Direction {
-    pub fn up(&mut self) {
-        *self = Self::Up;
-    }
-
-    pub fn down(&mut self) {
-        *self = Self::Up;
-    }
-
-    pub fn left(&mut self) {
-        *self = Self::Left;
-    }
-
-    pub fn right(&mut self) {
-        *self = Self::Right;
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deref, DerefMut)]
-pub struct Position(Vec2);
-
-impl Position {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self(vec2(x, y))
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deref, DerefMut)]
-pub struct Velocity(Vec2);
-
-impl Velocity {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self(vec2(x, y))
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deref, DerefMut)]
-pub struct Size(Vec2);
-
-impl Size {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self(vec2(x, y))
-    }
-}
-
-pub fn to_rect(pos: Position, size: Size) -> Rect {
-    Rect::new(pos.x, pos.y, size.x, size.y)
-}
-
-pub fn to_inner_rect(rect: Rect) -> Rect {
-    assert!(rect.w > 2.0 && rect.h > 2.0);
-    Rect::new(rect.x + 1.0, rect.y + 1.0, rect.w - 2.0, rect.h - 2.0)
-}
-
-pub fn center(rect: Rect) -> Vec2 {
-    rect.point() + rect.size() / 2.0
-}
-
-#[derive(Clone, Debug)]
-pub struct Sprite {
-    color: Color,
-}
-
-impl Sprite {
-    pub fn new(color: Color) -> Self {
-        Self { color }
-    }
-
-    pub fn color(&self) -> Color {
-        self.color
-    }
-}
+mod components;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Block;
 
 #[derive(Clone, Copy, Debug)]
-pub struct Player;
+pub struct HeldEntity {
+    entity: Entity,
+    relative_pos: Vec2,
+}
+
+impl HeldEntity {
+    fn new(entity: Entity, relative_pos: Vec2) -> Self {
+        Self {
+            entity,
+            relative_pos,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Player {
+    holding: bool,
+    holding_entity: Option<HeldEntity>,
+}
 
 impl Player {
+    fn new() -> Self {
+        Self {
+            holding: false,
+            holding_entity: None,
+        }
+    }
+
+    fn hold_block(&mut self) {
+        self.holding = true;
+    }
+
+    fn is_holding(&self, entity: Entity) -> bool {
+        match self.holding_entity {
+            Some(e) if e.entity == entity => true,
+            _ => false,
+        }
+    }
+
+    fn held_entity(&self) -> Option<HeldEntity> {
+        self.holding_entity
+    }
+
+    fn face(&mut self, new_entity: Entity, relative_pos: Vec2) {
+        if !self.holding {
+            return;
+        }
+
+        if self.holding_entity.is_none() {
+            self.holding_entity = Some(HeldEntity::new(new_entity, relative_pos));
+            println!("Take {:?}", self.holding_entity);
+        }
+    }
+
+    fn release_block(&mut self) {
+        println!("Release {:?}", self.holding_entity);
+        self.holding = false;
+        self.holding_entity = None;
+    }
+
     fn step(&self) -> f32 {
         5.0
     }
 }
 
 fn create_player(pos: Position) -> (Position, Direction, Velocity, Player, Size, Sprite) {
-    (pos, Direction::Down, Velocity::new(0.0, 0.0), Player, Size::new(40.0, 40.0), Sprite::new(BLUE))
+    (pos, Direction::Down, Velocity::new(0.0, 0.0), Player::new(), Size::new(40.0, 40.0), Sprite::new(BLUE))
 }
 
 fn create_block(pos: Position) -> (Position, Velocity, Block, Size, Sprite) {
@@ -111,7 +90,7 @@ fn update_positions(pos: &mut Position, vel: &Velocity) {
 }
 
 #[system(for_each)]
-fn control_player(pos: &mut Position, dir: &mut Direction, player: &Player) {
+fn control_player(pos: &mut Position, dir: &mut Direction, player: &mut Player) {
     let step = player.step();
 
     if is_key_down(KeyCode::Down) {
@@ -130,77 +109,134 @@ fn control_player(pos: &mut Position, dir: &mut Direction, player: &Player) {
         pos.x += step;
         dir.right();
     }
+
+    if is_key_pressed(KeyCode::Z) {
+        player.hold_block();
+    }
+    if is_key_released(KeyCode::Z) {
+        player.release_block();
+    }
 }
 
 #[system]
-fn player_block_collision(world: &mut SubWorld, players: &mut Query<(&mut Position, &Size, &Player)>, blocks: &mut Query<(&Position, &Size, &Block)>) {
-    let blocks: Vec<_> = blocks.iter(world).map(|(pos, size, _)| to_rect(*pos, *size)).collect();
+fn held_block_update(world: &mut SubWorld, players: &mut Query<(&Position, &Player)>, blocks: &mut Query<(Entity, &mut Position, &Block)>) {
+    let players: Vec<_> = players.iter(world).map(|(pos, player)| (*pos, player.clone())).collect();
 
-    for (pos, size, _) in players.iter_mut(world) {
-        for block_rect in &blocks {
-            let player_rect = to_rect(*pos, *size);
-            let margin = Vec2::new(player_rect.w * 0.45, player_rect.h * 0.45);
-            adjust_player_rect(pos, &player_rect, block_rect, margin);
+    for (player_pos, player) in players {
+        for (entity, block_pos, _) in blocks.iter_mut(world) {
+            let held_entity = match player.held_entity() {
+                Some(e) if e.entity == *entity => e,
+                _ => continue
+            };
+
+            **block_pos = *player_pos + held_entity.relative_pos;
         }
     }
 }
 
-fn adjust_player_rect(pos: &mut Position, player_rect: &Rect, block_rect: &Rect, margin: Vec2) {
+#[system]
+fn player_block_collision(world: &mut SubWorld, players: &mut Query<(&mut Position, &Size, &mut Player)>, blocks: &mut Query<(Entity, &Position, &Size, &Block)>) {
+    let blocks: Vec<_> = blocks.iter(world).map(|(entity, pos, size, _)| (*entity, components::to_rect(*pos, *size))).collect();
+
+    for (pos, size, player) in players.iter_mut(world) {
+        let block_held = blocks.iter().find(|(e, r)| player.is_holding(*e)).map(|(_, r)| *r);
+        let blocks: Vec<_> = blocks.iter().filter(|(e, _)| !player.is_holding(*e)).collect();
+
+        for (entity, block_rect) in blocks {
+            let player_rect = components::to_rect(*pos, *size);
+            let player_rect = match block_held {
+                Some(r) => player_rect.combine_with(r),
+                _ => player_rect
+            };
+            let margin = Vec2::new(player_rect.w * 0.45, player_rect.h * 0.45);
+
+            let collision_info = match check_collision(&player_rect, block_rect, margin) {
+                Some(c) => c,
+                None => continue
+            };
+
+            if collision_info.facing {
+                player.face(*entity, block_rect.point() - player_rect.point());
+            }
+
+            **pos += collision_info.adjustment;
+        }
+    }
+}
+
+struct CollisionInfo {
+    facing: bool,
+    adjustment: Vec2,
+}
+
+fn check_collision(player_rect: &Rect, block_rect: &Rect, margin: Vec2) -> Option<CollisionInfo> {
     // collision detection with smaller rectangle otherwise player gets stuck for excessive collision due to rounding errors
-    if !to_inner_rect(*player_rect).overlaps(&to_inner_rect(*block_rect)) {
-        return;
+    if !components::to_inner_rect(*player_rect).overlaps(&components::to_inner_rect(*block_rect)) {
+        return None;
     }
 
     let overlap = match player_rect.intersect(*block_rect) {
         Some(rect) => rect,
-        None => return
+        None => return None
     };
 
-    let player_center = center(*player_rect);
+    let player_center = components::center(*player_rect);
     let touch_up = overlap.y <= player_center.y;
     let touch_right = overlap.x <= player_center.x;
 
-    if overlap.w < overlap.h {
-        if touch_right {
-            pos.x += overlap.w;
+    let (adjust_x, adjust_y, facing) = if overlap.w < overlap.h {
+        let adjust_x = if touch_right {
+            overlap.w
         } else {
-            pos.x -= overlap.w;
-        }
+            -1.0 * overlap.w
+        };
+
         assert!(margin.y < player_rect.h / 2.0);
         if overlap.h <= margin.y {
-            if touch_up {
-                pos.y += overlap.h;
+            let adjust_y = if touch_up {
+                overlap.h
             } else {
-                pos.y -= overlap.h;
-            }
+                -1.0 * overlap.h
+            };
+            (adjust_x, adjust_y, false)
         } else if overlap.h >= player_rect.h - margin.y {
-            if player_rect.y <= block_rect.y {
-                pos.y += player_rect.h - overlap.h;
+            let adjust_y = if player_rect.y <= block_rect.y {
+                player_rect.h - overlap.h
             } else {
-                pos.y -= player_rect.h - overlap.h;
-            }
+                overlap.h - player_rect.h
+            };
+            (adjust_x, adjust_y, true)
+        } else {
+            (adjust_x, 0.0, false)
         }
     } else {
-        if touch_up {
-            pos.y += overlap.h;
+        let adjust_y = if touch_up {
+            overlap.h
         } else {
-            pos.y -= overlap.h;
-        }
+            -1.0 * overlap.h
+        };
+
         assert!(margin.x < player_rect.w / 2.0);
         if overlap.w <= margin.x {
-            if touch_right {
-                pos.x += overlap.w;
+            let adjust_x = if touch_right {
+                overlap.w
             } else {
-                pos.x -= overlap.w;
-            }
+                -1.0 * overlap.w
+            };
+            (adjust_x, adjust_y, false)
         } else if overlap.w >= player_rect.w - margin.x {
-            if player_rect.x <= block_rect.x {
-                pos.x += player_rect.w - overlap.w;
+            let adjust_x = if player_rect.x <= block_rect.x {
+                player_rect.w - overlap.w
             } else {
-                pos.x -= player_rect.w - overlap.w;
-            }
+                overlap.w - player_rect.w
+            };
+            (adjust_x, adjust_y, true)
+        } else {
+            (0.0, adjust_y, false)
         }
-    }
+    };
+
+    Some(CollisionInfo { facing, adjustment: Vec2::new(adjust_x, adjust_y) })
 }
 
 #[system(for_each)]
@@ -214,6 +250,7 @@ async fn main() {
     let mut resources = Resources::default();
 
     world.push(create_player(Position::new(120.0, 120.0)));
+
     world.extend(vec![
         create_block(Position::new(0.0, 0.0)),
         create_block(Position::new(0.0, 40.0)),
@@ -229,6 +266,7 @@ async fn main() {
         .add_system(draw_sprites_system())
         .add_system(control_player_system())
         .add_system(player_block_collision_system())
+        .add_system(held_block_update_system())
         .build();
 
     while !is_key_down(KeyCode::Escape) {
