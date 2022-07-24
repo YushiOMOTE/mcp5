@@ -1,5 +1,5 @@
-use legion::*;
 use legion::world::SubWorld;
+use legion::*;
 use macroquad::prelude::*;
 
 use components::{Direction, Position, Size, Sprite, Velocity};
@@ -76,11 +76,24 @@ impl Player {
 }
 
 fn create_player(pos: Position) -> (Position, Direction, Velocity, Player, Size, Sprite) {
-    (pos, Direction::Down, Velocity::new(0.0, 0.0), Player::new(), Size::new(40.0, 40.0), Sprite::new(BLUE))
+    (
+        pos,
+        Direction::Down,
+        Velocity::new(0.0, 0.0),
+        Player::new(),
+        Size::new(40.0, 40.0),
+        Sprite::new(BLUE),
+    )
 }
 
 fn create_block(pos: Position) -> (Position, Velocity, Block, Size, Sprite) {
-    (pos, Velocity::new(0.0, 0.0), Block, Size::new(40.0, 40.0), Sprite::new(RED))
+    (
+        pos,
+        Velocity::new(0.0, 0.0),
+        Block,
+        Size::new(40.0, 40.0),
+        Sprite::new(RED),
+    )
 }
 
 #[system(for_each)]
@@ -119,14 +132,21 @@ fn control_player(pos: &mut Position, dir: &mut Direction, player: &mut Player) 
 }
 
 #[system]
-fn held_block_update(world: &mut SubWorld, players: &mut Query<(&Position, &Player)>, blocks: &mut Query<(Entity, &mut Position, &Block)>) {
-    let players: Vec<_> = players.iter(world).map(|(pos, player)| (*pos, player.clone())).collect();
+fn held_block_update(
+    world: &mut SubWorld,
+    players: &mut Query<(&Position, &Player)>,
+    blocks: &mut Query<(Entity, &mut Position, &Block)>,
+) {
+    let players: Vec<_> = players
+        .iter(world)
+        .map(|(pos, player)| (*pos, player.clone()))
+        .collect();
 
     for (player_pos, player) in players {
         for (entity, block_pos, _) in blocks.iter_mut(world) {
             let held_entity = match player.held_entity() {
                 Some(e) if e.entity == *entity => e,
-                _ => continue
+                _ => continue,
             };
 
             **block_pos = *player_pos + held_entity.relative_pos;
@@ -135,24 +155,37 @@ fn held_block_update(world: &mut SubWorld, players: &mut Query<(&Position, &Play
 }
 
 #[system]
-fn player_block_collision(world: &mut SubWorld, players: &mut Query<(&mut Position, &Size, &mut Player)>, blocks: &mut Query<(Entity, &Position, &Size, &Block)>) {
-    let blocks: Vec<_> = blocks.iter(world).map(|(entity, pos, size, _)| (*entity, components::to_rect(*pos, *size))).collect();
+fn player_block_collision(
+    world: &mut SubWorld,
+    players: &mut Query<(&mut Position, &Size, &mut Player)>,
+    blocks: &mut Query<(Entity, &Position, &Size, &Block)>,
+) {
+    let blocks: Vec<_> = blocks
+        .iter(world)
+        .map(|(entity, pos, size, _)| (*entity, components::to_rect(*pos, *size)))
+        .collect();
 
     for (pos, size, player) in players.iter_mut(world) {
-        let block_held = blocks.iter().find(|(e, r)| player.is_holding(*e)).map(|(_, r)| *r);
-        let blocks: Vec<_> = blocks.iter().filter(|(e, _)| !player.is_holding(*e)).collect();
+        let block_held = blocks
+            .iter()
+            .find(|(e, r)| player.is_holding(*e))
+            .map(|(_, r)| *r);
+        let blocks: Vec<_> = blocks
+            .iter()
+            .filter(|(e, _)| !player.is_holding(*e))
+            .collect();
 
         for (entity, block_rect) in blocks {
             let player_rect = components::to_rect(*pos, *size);
             let player_rect = match block_held {
                 Some(r) => player_rect.combine_with(r),
-                _ => player_rect
+                _ => player_rect,
             };
             let margin = Vec2::new(player_rect.w * 0.45, player_rect.h * 0.45);
 
             let collision_info = match check_collision(&player_rect, block_rect, margin) {
                 Some(c) => c,
-                None => continue
+                None => continue,
             };
 
             if collision_info.facing {
@@ -177,7 +210,7 @@ fn check_collision(player_rect: &Rect, block_rect: &Rect, margin: Vec2) -> Optio
 
     let overlap = match player_rect.intersect(*block_rect) {
         Some(rect) => rect,
-        None => return None
+        None => return None,
     };
 
     let player_center = components::center(*player_rect);
@@ -236,7 +269,10 @@ fn check_collision(player_rect: &Rect, block_rect: &Rect, margin: Vec2) -> Optio
         }
     };
 
-    Some(CollisionInfo { facing, adjustment: Vec2::new(adjust_x, adjust_y) })
+    Some(CollisionInfo {
+        facing,
+        adjustment: Vec2::new(adjust_x, adjust_y),
+    })
 }
 
 #[system(for_each)]

@@ -2,7 +2,7 @@ use derive_deref::{Deref, DerefMut};
 use macroquad::color::Color;
 use macroquad::math::Rect;
 
-use crate::{f32, Vec2, vec2};
+use crate::{f32, vec2, Vec2};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Direction {
