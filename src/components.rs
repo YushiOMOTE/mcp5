@@ -1,5 +1,4 @@
 use derive_deref::{Deref, DerefMut};
-use macroquad::color::Color;
 use macroquad::math::Rect;
 
 use crate::{f32, vec2, Vec2};
@@ -40,15 +39,6 @@ impl Position {
 }
 
 #[derive(Clone, Copy, Debug, Deref, DerefMut)]
-pub struct Velocity(Vec2);
-
-impl Velocity {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self(vec2(x, y))
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deref, DerefMut)]
 pub struct Size(Vec2);
 
 impl Size {
@@ -75,19 +65,4 @@ pub fn merge_rects<T: std::iter::Iterator<Item = Rect>>(iter: T) -> Option<Rect>
         Some(s) => Some(s.combine_with(r)),
         None => Some(r),
     })
-}
-
-#[derive(Clone, Debug)]
-pub struct Sprite {
-    color: Color,
-}
-
-impl Sprite {
-    pub fn new(color: Color) -> Self {
-        Self { color }
-    }
-
-    pub fn color(&self) -> Color {
-        self.color
-    }
 }
