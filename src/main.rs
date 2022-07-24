@@ -1,8 +1,8 @@
 use legion::world::SubWorld;
-use legion::*;
+use legion::{systems::CommandBuffer, *};
 use macroquad::prelude::*;
 
-use components::{Direction, Position, Size, Sprite, Velocity};
+use components::{merge_rects, Direction, Position, Size, Sprite, Velocity};
 
 mod components;
 
@@ -10,77 +10,28 @@ mod components;
 pub struct Block;
 
 #[derive(Clone, Copy, Debug)]
-pub struct HeldEntity {
-    entity: Entity,
-    relative_pos: Vec2,
-}
-
-impl HeldEntity {
-    fn new(entity: Entity, relative_pos: Vec2) -> Self {
-        Self {
-            entity,
-            relative_pos,
-        }
-    }
-}
+pub struct Player;
 
 #[derive(Clone, Copy, Debug)]
-pub struct Player {
-    holding: bool,
-    holding_entity: Option<HeldEntity>,
-}
+pub struct PlayerPart;
 
-impl Player {
-    fn new() -> Self {
-        Self {
-            holding: false,
-            holding_entity: None,
-        }
-    }
-
-    fn hold_block(&mut self) {
-        self.holding = true;
-    }
-
-    fn is_holding(&self, entity: Entity) -> bool {
-        match self.holding_entity {
-            Some(e) if e.entity == entity => true,
-            _ => false,
-        }
-    }
-
-    fn held_entity(&self) -> Option<HeldEntity> {
-        self.holding_entity
-    }
-
-    fn face(&mut self, new_entity: Entity, relative_pos: Vec2) {
-        if !self.holding {
-            return;
-        }
-
-        if self.holding_entity.is_none() {
-            self.holding_entity = Some(HeldEntity::new(new_entity, relative_pos));
-            println!("Take {:?}", self.holding_entity);
-        }
-    }
-
-    fn release_block(&mut self) {
-        println!("Release {:?}", self.holding_entity);
-        self.holding = false;
-        self.holding_entity = None;
-    }
-
-    fn step(&self) -> f32 {
-        5.0
-    }
-}
-
-fn create_player(pos: Position) -> (Position, Direction, Velocity, Player, Size, Sprite) {
+fn create_player(
+    pos: Position,
+) -> (
+    Position,
+    Direction,
+    Velocity,
+    Player,
+    PlayerPart,
+    Size,
+    Sprite,
+) {
     (
         pos,
         Direction::Down,
         Velocity::new(0.0, 0.0),
-        Player::new(),
+        Player,
+        PlayerPart,
         Size::new(40.0, 40.0),
         Sprite::new(BLUE),
     )
@@ -103,53 +54,72 @@ fn update_positions(pos: &mut Position, vel: &Velocity) {
 }
 
 #[system(for_each)]
-fn control_player(pos: &mut Position, dir: &mut Direction, player: &mut Player) {
-    let step = player.step();
+fn control_player(pos: &mut Position, dir: Option<&mut Direction>, _: &PlayerPart) {
+    let step = 1.0;
+
+    if let Some(dir) = dir {
+        if is_key_down(KeyCode::Down) {
+            dir.down();
+        }
+        if is_key_down(KeyCode::Up) {
+            dir.up();
+        }
+        if is_key_down(KeyCode::Left) {
+            dir.left();
+        }
+        if is_key_down(KeyCode::Right) {
+            dir.right();
+        }
+    }
 
     if is_key_down(KeyCode::Down) {
         pos.y += step;
-        dir.down();
     }
     if is_key_down(KeyCode::Up) {
         pos.y -= step;
-        dir.up();
     }
     if is_key_down(KeyCode::Left) {
         pos.x -= step;
-        dir.left();
     }
     if is_key_down(KeyCode::Right) {
         pos.x += step;
-        dir.right();
-    }
-
-    if is_key_pressed(KeyCode::Z) {
-        player.hold_block();
-    }
-    if is_key_released(KeyCode::Z) {
-        player.release_block();
     }
 }
 
 #[system]
-fn held_block_update(
+fn hold_block(
     world: &mut SubWorld,
-    players: &mut Query<(&Position, &Player)>,
-    blocks: &mut Query<(Entity, &mut Position, &Block)>,
+    players: &mut Query<(&Position, &Size, &PlayerPart)>,
+    blocks: &mut Query<(Entity, &Position, &Size, &Block)>,
+    command_buffer: &mut CommandBuffer,
 ) {
-    let players: Vec<_> = players
+    let player_rects = players
         .iter(world)
-        .map(|(pos, player)| (*pos, player.clone()))
-        .collect();
+        .map(|(pos, size, _)| components::to_rect(*pos, *size));
 
-    for (player_pos, player) in players {
-        for (entity, block_pos, _) in blocks.iter_mut(world) {
-            let held_entity = match player.held_entity() {
-                Some(e) if e.entity == *entity => e,
-                _ => continue,
-            };
+    if is_key_pressed(KeyCode::Z) {
+        for player_rect in player_rects {
+            for (entity, pos, size, _) in blocks.iter(world) {
+                let block_rect = components::to_rect(*pos, *size);
+                if player_rect.overlaps(&block_rect) {
+                    command_buffer.add_component(*entity, PlayerPart);
+                    command_buffer.remove_component::<Block>(*entity);
+                }
+            }
+        }
+    }
+}
 
-            **block_pos = *player_pos + held_entity.relative_pos;
+#[system]
+#[read_component(Entity)]
+#[read_component(PlayerPart)]
+fn unhold_block(world: &mut SubWorld, command_buffer: &mut CommandBuffer) {
+    let mut query = <(Entity, &PlayerPart)>::query().filter(!component::<Player>());
+
+    if is_key_released(KeyCode::Z) {
+        for (entity, _) in query.iter(world) {
+            command_buffer.add_component(*entity, Block);
+            command_buffer.remove_component::<PlayerPart>(*entity);
         }
     }
 }
@@ -157,48 +127,47 @@ fn held_block_update(
 #[system]
 fn player_block_collision(
     world: &mut SubWorld,
-    players: &mut Query<(&mut Position, &Size, &mut Player)>,
-    blocks: &mut Query<(Entity, &Position, &Size, &Block)>,
+    players_pos: &mut Query<(&mut Position, &PlayerPart)>,
+    players: &mut Query<(&Position, &Size, &PlayerPart)>,
+    blocks: &mut Query<(&Position, &Size, &Block)>,
 ) {
-    let blocks: Vec<_> = blocks
+    let block_rects = blocks
         .iter(world)
-        .map(|(entity, pos, size, _)| (*entity, components::to_rect(*pos, *size)))
-        .collect();
+        .map(|(pos, size, _)| (components::to_rect(*pos, *size)));
+    let player_rects = players
+        .iter(world)
+        .map(|(pos, size, _)| components::to_rect(*pos, *size));
 
-    for (pos, size, player) in players.iter_mut(world) {
-        let block_held = blocks
-            .iter()
-            .find(|(e, r)| player.is_holding(*e))
-            .map(|(_, r)| *r);
-        let blocks: Vec<_> = blocks
-            .iter()
-            .filter(|(e, _)| !player.is_holding(*e))
-            .collect();
+    let player_rect = match merge_rects(player_rects) {
+        Some(r) => r,
+        None => return,
+    };
+    let adjusted_player_rect = adjust_player_rect(player_rect, block_rects);
+    let adjustment = adjusted_player_rect.point() - player_rect.point();
 
-        for (entity, block_rect) in blocks {
-            let player_rect = components::to_rect(*pos, *size);
-            let player_rect = match block_held {
-                Some(r) => player_rect.combine_with(r),
-                _ => player_rect,
-            };
-            let margin = Vec2::new(player_rect.w * 0.45, player_rect.h * 0.45);
-
-            let collision_info = match check_collision(&player_rect, block_rect, margin) {
-                Some(c) => c,
-                None => continue,
-            };
-
-            if collision_info.facing {
-                player.face(*entity, block_rect.point() - player_rect.point());
-            }
-
-            **pos += collision_info.adjustment;
-        }
+    // Update player position
+    for (pos, _) in players_pos.iter_mut(world) {
+        **pos += adjustment;
     }
 }
 
+/// Check collision and return adjusted rect
+fn adjust_player_rect<T: std::iter::Iterator<Item = Rect>>(
+    player_rect: Rect,
+    block_rects: T,
+) -> Rect {
+    block_rects.fold(player_rect, |player_rect, block_rect| {
+        let margin = Vec2::new(player_rect.w * 0.45, player_rect.h * 0.45);
+        let collision_info = match check_collision(&player_rect, &block_rect, margin) {
+            Some(c) => c,
+            None => return player_rect,
+        };
+
+        player_rect.offset(collision_info.adjustment)
+    })
+}
+
 struct CollisionInfo {
-    facing: bool,
     adjustment: Vec2,
 }
 
@@ -217,7 +186,7 @@ fn check_collision(player_rect: &Rect, block_rect: &Rect, margin: Vec2) -> Optio
     let touch_up = overlap.y <= player_center.y;
     let touch_right = overlap.x <= player_center.x;
 
-    let (adjust_x, adjust_y, facing) = if overlap.w < overlap.h {
+    let (adjust_x, adjust_y) = if overlap.w < overlap.h {
         let adjust_x = if touch_right {
             overlap.w
         } else {
@@ -231,16 +200,16 @@ fn check_collision(player_rect: &Rect, block_rect: &Rect, margin: Vec2) -> Optio
             } else {
                 -1.0 * overlap.h
             };
-            (adjust_x, adjust_y, false)
+            (adjust_x, adjust_y)
         } else if overlap.h >= player_rect.h - margin.y {
             let adjust_y = if player_rect.y <= block_rect.y {
                 player_rect.h - overlap.h
             } else {
                 overlap.h - player_rect.h
             };
-            (adjust_x, adjust_y, true)
+            (adjust_x, adjust_y)
         } else {
-            (adjust_x, 0.0, false)
+            (adjust_x, 0.0)
         }
     } else {
         let adjust_y = if touch_up {
@@ -256,21 +225,20 @@ fn check_collision(player_rect: &Rect, block_rect: &Rect, margin: Vec2) -> Optio
             } else {
                 -1.0 * overlap.w
             };
-            (adjust_x, adjust_y, false)
+            (adjust_x, adjust_y)
         } else if overlap.w >= player_rect.w - margin.x {
             let adjust_x = if player_rect.x <= block_rect.x {
                 player_rect.w - overlap.w
             } else {
                 overlap.w - player_rect.w
             };
-            (adjust_x, adjust_y, true)
+            (adjust_x, adjust_y)
         } else {
-            (0.0, adjust_y, false)
+            (0.0, adjust_y)
         }
     };
 
     Some(CollisionInfo {
-        facing,
         adjustment: Vec2::new(adjust_x, adjust_y),
     })
 }
@@ -298,11 +266,12 @@ async fn main() {
     ]);
 
     let mut schedule = Schedule::builder()
-        .add_system(update_positions_system())
         .add_system(draw_sprites_system())
         .add_system(control_player_system())
         .add_system(player_block_collision_system())
-        .add_system(held_block_update_system())
+        .add_system(update_positions_system())
+        .add_system(hold_block_system())
+        .add_system(unhold_block_system())
         .build();
 
     while !is_key_down(KeyCode::Escape) {
