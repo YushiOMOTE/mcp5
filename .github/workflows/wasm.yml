@@ -11,6 +11,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - name: Setup
+        run: make setup
       - name: Build
         run: make
       - name: Deploy
