@@ -37,7 +37,7 @@ pub fn create_player(
 
 #[system(for_each)]
 pub fn control_player(pos: &mut Position, dir: Option<&mut Direction>, _: &PlayerPart) {
-    let step = 1.0;
+    let step = 400.0;
 
     if let Some(dir) = dir {
         if is_key_down(KeyCode::Down) {
@@ -55,15 +55,15 @@ pub fn control_player(pos: &mut Position, dir: Option<&mut Direction>, _: &Playe
     }
 
     if is_key_down(KeyCode::Down) {
-        pos.y += step;
+        pos.y += step * get_frame_time();
     }
     if is_key_down(KeyCode::Up) {
-        pos.y -= step;
+        pos.y -= step * get_frame_time();
     }
     if is_key_down(KeyCode::Left) {
-        pos.x -= step;
+        pos.x -= step * get_frame_time();
     }
     if is_key_down(KeyCode::Right) {
-        pos.x += step;
+        pos.x += step * get_frame_time();
     }
 }

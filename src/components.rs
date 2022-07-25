@@ -17,7 +17,7 @@ impl Direction {
     }
 
     pub fn down(&mut self) {
-        *self = Self::Up;
+        *self = Self::Down;
     }
 
     pub fn left(&mut self) {

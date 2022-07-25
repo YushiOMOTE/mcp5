@@ -3,29 +3,42 @@ use legion::{systems::CommandBuffer, *};
 use macroquad::prelude::*;
 
 use crate::block::Block;
-use crate::components::{self, merge_rects, to_rect, Position, Size};
+use crate::components::{self, merge_rects, to_rect, Direction, Position, Size};
 use crate::grid::Grid;
 use crate::player::{Player, PlayerPart};
 
 #[system]
 pub fn hold_block(
     world: &mut SubWorld,
-    players: &mut Query<(&Position, &Size, &PlayerPart)>,
+    players: &mut Query<(&Position, &Size, &Direction, &PlayerPart)>,
     blocks: &mut Query<(Entity, &Position, &Size, &Block)>,
     command_buffer: &mut CommandBuffer,
 ) {
     let player_rects = players
         .iter(world)
-        .map(|(pos, size, _)| to_rect(*pos, *size));
+        .map(|(pos, size, dir, _)| (to_rect(*pos, *size), dir));
 
     if is_key_pressed(KeyCode::Z) {
-        for player_rect in player_rects {
+        for (player_rect, dir) in player_rects {
             for (entity, pos, size, _) in blocks.iter(world) {
                 let block_rect = components::to_rect(*pos, *size);
-                if player_rect.overlaps(&block_rect) {
-                    command_buffer.add_component(*entity, PlayerPart);
-                    command_buffer.remove_component::<Block>(*entity);
-                    command_buffer.remove_component::<Grid>(*entity);
+                if let Some(intersect) = player_rect.intersect(block_rect) {
+                    let same_x = player_rect.x == intersect.x;
+                    let same_y = player_rect.y == intersect.y;
+                    let same_w = player_rect.w == intersect.w;
+                    let same_h = player_rect.h == intersect.h;
+
+                    match (same_x, same_y, same_w, same_h, dir) {
+                        (_, true, true, _, Direction::Up)
+                        | (_, false, true, _, Direction::Down)
+                        | (true, _, _, true, Direction::Left)
+                        | (false, _, _, true, Direction::Right) => {
+                            command_buffer.add_component(*entity, PlayerPart);
+                            command_buffer.remove_component::<Block>(*entity);
+                            command_buffer.remove_component::<Grid>(*entity);
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
