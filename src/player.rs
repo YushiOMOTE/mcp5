@@ -1,4 +1,5 @@
 use crate::{
+    camera::Camera,
     components::{Direction, Position, Size},
     grid::GRID_SIZE,
     physics::Velocity,
@@ -23,6 +24,7 @@ pub fn create_player(
     PlayerPart,
     Size,
     Sprite,
+    Camera,
 ) {
     (
         pos,
@@ -32,6 +34,7 @@ pub fn create_player(
         PlayerPart,
         Size::new(GRID_SIZE, GRID_SIZE),
         Sprite::new(BLUE),
+        Camera,
     )
 }
 
