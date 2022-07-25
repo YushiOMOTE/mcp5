@@ -18,7 +18,7 @@ pub fn hold_block(
         .iter(world)
         .map(|(pos, size, dir, _)| (to_rect(*pos, *size), dir));
 
-    if is_key_pressed(KeyCode::Z) {
+    if is_key_pressed(KeyCode::X) {
         for (player_rect, dir) in player_rects {
             for (entity, pos, size, _) in blocks.iter(world) {
                 let block_rect = components::to_rect(*pos, *size);
@@ -51,7 +51,7 @@ pub fn hold_block(
 pub fn unhold_block(world: &mut SubWorld, command_buffer: &mut CommandBuffer) {
     let mut query = <(Entity, &PlayerPart)>::query().filter(!component::<Player>());
 
-    if is_key_released(KeyCode::Z) {
+    if is_key_released(KeyCode::X) {
         for (entity, _) in query.iter(world) {
             command_buffer.add_component(*entity, Block);
             command_buffer.add_component(*entity, Grid);

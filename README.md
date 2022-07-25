@@ -10,4 +10,5 @@ https://yushiomote.github.io/mcp5/
 Keys:
 
 - Arrow keys - Move
-- Z - Hold near blocks
+- Z - Quick run
+- X - Hold facing blocks

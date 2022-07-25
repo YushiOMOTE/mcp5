@@ -40,7 +40,7 @@ pub fn create_player(
 
 #[system(for_each)]
 pub fn control_player(pos: &mut Position, dir: Option<&mut Direction>, _: &PlayerPart) {
-    let step = if is_key_down(KeyCode::X) {
+    let step = if is_key_down(KeyCode::Z) {
         400.0
     } else {
         200.0
