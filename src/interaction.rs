@@ -4,6 +4,7 @@ use macroquad::prelude::*;
 
 use crate::block::{Block, Movable};
 use crate::components::{self, merge_rects, to_rect, Direction, Position, Size};
+use crate::control::Control;
 use crate::grid::Grid;
 use crate::keymap;
 use crate::player::{Player, PlayerPart};
@@ -38,6 +39,7 @@ pub fn hold_block(
                     | (true, _, _, true, Direction::Left)
                     | (false, _, _, true, Direction::Right) => {
                         command_buffer.add_component(*entity, PlayerPart);
+                        command_buffer.add_component(*entity, Control);
                         command_buffer.remove_component::<Grid>(*entity);
                     }
                     _ => {}
@@ -60,6 +62,7 @@ pub fn unhold_block(world: &mut SubWorld, command_buffer: &mut CommandBuffer) {
     for (entity, _) in query.iter(world) {
         command_buffer.add_component(*entity, Grid);
         command_buffer.remove_component::<PlayerPart>(*entity);
+        command_buffer.remove_component::<Control>(*entity);
     }
 }
 

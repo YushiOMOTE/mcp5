@@ -4,15 +4,17 @@ use macroquad::prelude::*;
 use block::{create_block, create_fixed_block};
 use camera::update_camera_system;
 use components::Position;
+use control::control_system;
 use grid::grid_system;
 use interaction::{hold_block_system, player_block_collision_system, unhold_block_system};
 use physics::update_positions_system;
-use player::{control_player_system, create_player};
+use player::create_player;
 use sprite::draw_sprites_system;
 
 mod block;
 mod camera;
 mod components;
+mod control;
 mod grid;
 mod interaction;
 mod keymap;
@@ -54,7 +56,7 @@ async fn main() {
     let mut schedule = Schedule::builder()
         .add_system(update_camera_system())
         .add_system(draw_sprites_system())
-        .add_system(control_player_system())
+        .add_system(control_system())
         .add_system(player_block_collision_system())
         .add_system(update_positions_system())
         .add_system(hold_block_system())
