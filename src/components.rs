@@ -59,10 +59,3 @@ pub fn to_inner_rect(rect: Rect) -> Rect {
 pub fn center(rect: Rect) -> Vec2 {
     rect.point() + rect.size() / 2.0
 }
-
-pub fn merge_rects<T: std::iter::Iterator<Item = Rect>>(iter: T) -> Option<Rect> {
-    iter.fold(None::<Rect>, |s, r| match s {
-        Some(s) => Some(s.combine_with(r)),
-        None => Some(r),
-    })
-}

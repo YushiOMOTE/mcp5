@@ -1,9 +1,10 @@
 use legion::world::SubWorld;
 use legion::{systems::CommandBuffer, *};
 use macroquad::prelude::*;
+use std::collections::HashMap;
 
 use crate::block::{Block, Movable};
-use crate::components::{self, merge_rects, to_rect, Direction, Position, Size};
+use crate::components::{self, to_rect, Direction, Position, Size};
 use crate::control::Control;
 use crate::grid::Grid;
 use crate::keymap;
@@ -12,7 +13,7 @@ use crate::player::{Player, PlayerPart};
 #[system]
 pub fn hold_block(
     world: &mut SubWorld,
-    players: &mut Query<(&Position, &Size, &Direction, &PlayerPart)>,
+    players: &mut Query<(Entity, &Position, &Size, &Direction, &Player)>,
     blocks: &mut Query<(Entity, &Position, &Size, &Block, &Movable)>,
     command_buffer: &mut CommandBuffer,
 ) {
@@ -22,9 +23,9 @@ pub fn hold_block(
 
     let player_rects = players
         .iter(world)
-        .map(|(pos, size, dir, _)| (to_rect(*pos, *size), dir));
+        .map(|(entity, pos, size, dir, _)| (entity, to_rect(*pos, *size), dir));
 
-    for (player_rect, dir) in player_rects {
+    for (player_entity, player_rect, dir) in player_rects {
         for (entity, pos, size, _, _) in blocks.iter(world) {
             let block_rect = components::to_rect(*pos, *size);
             if let Some(intersect) = player_rect.intersect(block_rect) {
@@ -38,7 +39,7 @@ pub fn hold_block(
                     | (_, false, true, _, Direction::Down)
                     | (true, _, _, true, Direction::Left)
                     | (false, _, _, true, Direction::Right) => {
-                        command_buffer.add_component(*entity, PlayerPart);
+                        command_buffer.add_component(*entity, PlayerPart::new(*player_entity));
                         command_buffer.add_component(*entity, Control);
                         command_buffer.remove_component::<Grid>(*entity);
                     }
@@ -66,33 +67,75 @@ pub fn unhold_block(world: &mut SubWorld, command_buffer: &mut CommandBuffer) {
     }
 }
 
+/// Mapping of owner entity and the merged rect
+struct PlayerRects(HashMap<Entity, Rect>);
+
+impl PlayerRects {
+    fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    fn update(&mut self, entity: Entity, pos: Position, size: Size, player_part: PlayerPart) {
+        let entity = owner_entity(entity, player_part);
+        let rect = components::to_rect(pos, size);
+
+        let existing_rect = self.0.entry(entity).or_insert(rect);
+
+        *existing_rect = existing_rect.combine_with(rect);
+    }
+}
+
+fn owner_entity(entity: Entity, player_part: PlayerPart) -> Entity {
+    match player_part.owner() {
+        Some(e) => e,
+        _ => entity,
+    }
+}
+
 #[system]
 #[read_component(Position)]
 #[read_component(Size)]
 #[read_component(Block)]
 pub fn player_block_collision(
     world: &mut SubWorld,
-    players_pos: &mut Query<(&mut Position, &PlayerPart)>,
-    players: &mut Query<(&Position, &Size, &PlayerPart)>,
+    players_pos: &mut Query<(Entity, &mut Position, &PlayerPart)>,
+    players: &mut Query<(Entity, &Position, &Size, &PlayerPart)>,
+    blocks: &mut Query<(Entity, &Position, &Size, Option<&PlayerPart>, &Block)>,
 ) {
-    let mut blocks = <(&Position, &Size, &Block)>::query().filter(!component::<PlayerPart>());
-
-    let block_rects = blocks
+    let block_rects: Vec<_> = blocks
         .iter(world)
-        .map(|(pos, size, _)| (components::to_rect(*pos, *size)));
+        .map(|(e, pos, size, pp_opt, _)| {
+            (
+                pp_opt.map(|pp| owner_entity(*e, *pp)),
+                components::to_rect(*pos, *size),
+            )
+        })
+        .collect();
+
     let player_rects = players
         .iter(world)
-        .map(|(pos, size, _)| components::to_rect(*pos, *size));
-
-    let player_rect = match merge_rects(player_rects) {
-        Some(r) => r,
-        None => return,
-    };
-    let adjusted_player_rect = adjust_player_rect(player_rect, block_rects);
-    let adjustment = adjusted_player_rect.point() - player_rect.point();
+        .fold(PlayerRects::new(), |mut g, (e, pos, size, pp)| {
+            g.update(*e, *pos, *size, *pp);
+            g
+        });
 
     // Update player position
-    for (pos, _) in players_pos.iter_mut(world) {
+    for (e, pos, pp) in players_pos.iter_mut(world) {
+        let entity = owner_entity(*e, *pp);
+        let player_rect = player_rects
+            .0
+            .get(&entity)
+            .expect("unsized player detected");
+
+        // Exclude blocks held by the same owner
+        let block_rects = block_rects
+            .iter()
+            .filter(|(e, _)| *e != Some(entity))
+            .map(|(_, r)| *r);
+
+        let adjusted_player_rect = adjust_player_rect(*player_rect, block_rects);
+        let adjustment = adjusted_player_rect.point() - player_rect.point();
+
         **pos += adjustment;
     }
 }
