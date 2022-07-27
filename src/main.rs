@@ -15,6 +15,7 @@ mod camera;
 mod components;
 mod grid;
 mod interaction;
+mod keymap;
 mod physics;
 mod player;
 mod sprite;
