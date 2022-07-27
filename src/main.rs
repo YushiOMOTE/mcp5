@@ -1,7 +1,7 @@
 use legion::*;
 use macroquad::prelude::*;
 
-use block::create_block;
+use block::{create_block, create_fixed_block};
 use camera::update_camera_system;
 use components::Position;
 use grid::grid_system;
@@ -42,6 +42,13 @@ async fn main() {
         create_block(Position::new(80.0, 80.0)),
         create_block(Position::new(160.0, 80.0)),
         create_block(Position::new(240.0, 80.0)),
+    ]);
+
+    world.extend(vec![
+        create_fixed_block(Position::new(360.0, 0.0)),
+        create_fixed_block(Position::new(360.0, 40.0)),
+        create_fixed_block(Position::new(360.0, 80.0)),
+        create_fixed_block(Position::new(360.0, 120.0)),
     ]);
 
     let mut schedule = Schedule::builder()

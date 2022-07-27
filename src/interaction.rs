@@ -2,7 +2,7 @@ use legion::world::SubWorld;
 use legion::{systems::CommandBuffer, *};
 use macroquad::prelude::*;
 
-use crate::block::Block;
+use crate::block::{Block, Movable};
 use crate::components::{self, merge_rects, to_rect, Direction, Position, Size};
 use crate::grid::Grid;
 use crate::keymap;
@@ -12,7 +12,7 @@ use crate::player::{Player, PlayerPart};
 pub fn hold_block(
     world: &mut SubWorld,
     players: &mut Query<(&Position, &Size, &Direction, &PlayerPart)>,
-    blocks: &mut Query<(Entity, &Position, &Size, &Block)>,
+    blocks: &mut Query<(Entity, &Position, &Size, &Block, &Movable)>,
     command_buffer: &mut CommandBuffer,
 ) {
     if !is_key_pressed(keymap::HOLD) {
@@ -24,7 +24,7 @@ pub fn hold_block(
         .map(|(pos, size, dir, _)| (to_rect(*pos, *size), dir));
 
     for (player_rect, dir) in player_rects {
-        for (entity, pos, size, _) in blocks.iter(world) {
+        for (entity, pos, size, _, _) in blocks.iter(world) {
             let block_rect = components::to_rect(*pos, *size);
             if let Some(intersect) = player_rect.intersect(block_rect) {
                 let same_x = player_rect.x == intersect.x;
@@ -38,7 +38,6 @@ pub fn hold_block(
                     | (true, _, _, true, Direction::Left)
                     | (false, _, _, true, Direction::Right) => {
                         command_buffer.add_component(*entity, PlayerPart);
-                        command_buffer.remove_component::<Block>(*entity);
                         command_buffer.remove_component::<Grid>(*entity);
                     }
                     _ => {}
@@ -59,19 +58,22 @@ pub fn unhold_block(world: &mut SubWorld, command_buffer: &mut CommandBuffer) {
     let mut query = <(Entity, &PlayerPart)>::query().filter(!component::<Player>());
 
     for (entity, _) in query.iter(world) {
-        command_buffer.add_component(*entity, Block);
         command_buffer.add_component(*entity, Grid);
         command_buffer.remove_component::<PlayerPart>(*entity);
     }
 }
 
 #[system]
+#[read_component(Position)]
+#[read_component(Size)]
+#[read_component(Block)]
 pub fn player_block_collision(
     world: &mut SubWorld,
     players_pos: &mut Query<(&mut Position, &PlayerPart)>,
     players: &mut Query<(&Position, &Size, &PlayerPart)>,
-    blocks: &mut Query<(&Position, &Size, &Block)>,
 ) {
+    let mut blocks = <(&Position, &Size, &Block)>::query().filter(!component::<PlayerPart>());
+
     let block_rects = blocks
         .iter(world)
         .map(|(pos, size, _)| (components::to_rect(*pos, *size)));
