@@ -1,4 +1,5 @@
 use crate::{
+    ai::chase::Chase,
     camera::Camera,
     components::{Direction, Position, Size},
     control::Control,
@@ -56,5 +57,29 @@ pub fn create_player(
         Sprite::new(BLUE),
         Camera,
         Control,
+    )
+}
+
+pub fn create_chaser(
+    pos: Position,
+) -> (
+    Position,
+    Direction,
+    Velocity,
+    Player,
+    PlayerPart,
+    Size,
+    Sprite,
+    Chase,
+) {
+    (
+        pos,
+        Direction::Down,
+        Velocity::new(0.0, 0.0),
+        Player,
+        PlayerPart::empty(),
+        Size::new(GRID_SIZE, GRID_SIZE),
+        Sprite::new(YELLOW),
+        Chase::new(),
     )
 }
