@@ -6,6 +6,7 @@ use crate::{
     grid::GRID_SIZE,
     physics::Velocity,
     sprite::Sprite,
+    temporary::Temporary,
 };
 use legion::Entity;
 use macroquad::prelude::*;
@@ -81,5 +82,25 @@ pub fn create_chaser(
         Size::new(GRID_SIZE, GRID_SIZE),
         Sprite::new(YELLOW),
         Chase::new(),
+    )
+}
+
+pub fn create_attack(
+    pos: Position,
+    dir: Direction,
+) -> (Position, Direction, Velocity, Size, Sprite, Temporary) {
+    const SPEED: f32 = 400.0;
+    (
+        pos,
+        dir,
+        match dir {
+            Direction::Up => Velocity::new(0.0, -1.0 * SPEED),
+            Direction::Down => Velocity::new(0.0, SPEED),
+            Direction::Right => Velocity::new(SPEED, 0.0),
+            Direction::Left => Velocity::new(-1.0 * SPEED, 0.0),
+        },
+        Size::new(GRID_SIZE, GRID_SIZE),
+        Sprite::new(PURPLE),
+        Temporary::die_after(0.5),
     )
 }

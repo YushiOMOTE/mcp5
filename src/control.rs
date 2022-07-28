@@ -1,16 +1,22 @@
-use legion::*;
+use legion::{systems::CommandBuffer, *};
 use macroquad::prelude::*;
 
 use crate::{
     components::{Direction, Position},
     keymap,
+    player::create_attack,
 };
 
 #[derive(Debug)]
 pub struct Control;
 
 #[system(for_each)]
-pub fn control(pos: &mut Position, dir: Option<&mut Direction>, _: &Control) {
+pub fn control(
+    pos: &mut Position,
+    dir: Option<&mut Direction>,
+    _: &Control,
+    command_buffer: &mut CommandBuffer,
+) {
     let step = if is_key_down(keymap::RUN) {
         400.0
     } else {
@@ -29,6 +35,9 @@ pub fn control(pos: &mut Position, dir: Option<&mut Direction>, _: &Control) {
         }
         if is_key_down(keymap::MOVE_RIGHT) {
             dir.right();
+        }
+        if is_key_pressed(keymap::ATTACK) {
+            command_buffer.push(create_attack(*pos, *dir));
         }
     }
 

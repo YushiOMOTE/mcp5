@@ -12,3 +12,4 @@ Keys:
 - Arrow keys - Move
 - Z - Quick run
 - X - Hold facing blocks
+- C - Attack

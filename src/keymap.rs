@@ -7,3 +7,4 @@ pub const MOVE_RIGHT: KeyCode = KeyCode::Right;
 
 pub const RUN: KeyCode = KeyCode::Z;
 pub const HOLD: KeyCode = KeyCode::X;
+pub const ATTACK: KeyCode = KeyCode::C;

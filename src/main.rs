@@ -11,6 +11,7 @@ use interaction::{hold_block_system, player_block_collision_system, unhold_block
 use physics::update_positions_system;
 use player::{create_chaser, create_player};
 use sprite::draw_sprites_system;
+use temporary::clean_temporary_system;
 
 mod ai;
 mod block;
@@ -23,6 +24,7 @@ mod keymap;
 mod physics;
 mod player;
 mod sprite;
+mod temporary;
 
 fn window_conf() -> Conf {
     Conf {
@@ -67,6 +69,7 @@ async fn main() {
         .add_system(grid_system())
         .add_system(find_chase_target_system())
         .add_system(chase_target_system())
+        .add_system(clean_temporary_system())
         .build();
 
     while !is_key_down(KeyCode::Escape) {
