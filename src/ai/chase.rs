@@ -1,4 +1,4 @@
-use legion::{world::SubWorld, *};
+use legion::{systems::Builder, world::SubWorld, *};
 use macroquad::prelude::*;
 use std::collections::HashMap;
 
@@ -22,7 +22,7 @@ impl Chase {
 #[read_component(Player)]
 #[read_component(Position)]
 #[write_component(Chase)]
-pub fn find_chase_target(
+fn find_chase_target(
     world: &mut SubWorld,
     chasers: &mut Query<(Entity, &mut Chase, &Position, &Player)>,
     players: &mut Query<(Entity, &Position, &Player)>,
@@ -44,7 +44,7 @@ pub fn find_chase_target(
 #[read_component(Player)]
 #[write_component(Position)]
 #[read_component(Chase)]
-pub fn chase_target(
+fn chase_target(
     world: &mut SubWorld,
     chasers: &mut Query<(&Chase, &mut Position, &Player)>,
     players: &mut Query<(Entity, &Position, &Player)>,
@@ -68,4 +68,10 @@ pub fn chase_target(
         let movement = norm * SPEED * get_frame_time();
         **pos += movement;
     }
+}
+
+pub fn setup_systems(builder: &mut Builder) -> &mut Builder {
+    builder
+        .add_system(find_chase_target_system())
+        .add_system(chase_target_system())
 }

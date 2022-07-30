@@ -1,18 +1,9 @@
-use legion::*;
+use legion::{systems::Builder, *};
 use macroquad::prelude::*;
 
-use ai::chase::{chase_target_system, find_chase_target_system};
 use block::{create_block, create_fixed_block};
-use camera::update_camera_system;
 use components::Position;
-use control::control_system;
-use grid::grid_system;
-use hit::hit_check_system;
-use interaction::{hold_block_system, player_block_collision_system, unhold_block_system};
-use physics::update_positions_system;
 use player::{create_chaser, create_player};
-use sprite::draw_sprites_system;
-use temporary::clean_temporary_system;
 
 mod ai;
 mod block;
@@ -33,6 +24,18 @@ fn window_conf() -> Conf {
         window_title: "mcp5".into(),
         ..Default::default()
     }
+}
+
+fn setup_systems(builder: &mut Builder) -> &mut Builder {
+    camera::setup_systems(builder);
+    sprite::setup_systems(builder);
+    control::setup_systems(builder);
+    physics::setup_systems(builder);
+    interaction::setup_systems(builder);
+    grid::setup_systems(builder);
+    ai::setup_systems(builder);
+    temporary::setup_systems(builder);
+    hit::setup_systems(builder)
 }
 
 #[macroquad::main(window_conf)]
@@ -60,20 +63,8 @@ async fn main() {
         create_fixed_block(Position::new(360.0, 120.0)),
     ]);
 
-    let mut schedule = Schedule::builder()
-        .add_system(update_camera_system())
-        .add_system(draw_sprites_system())
-        .add_system(control_system())
-        .add_system(player_block_collision_system())
-        .add_system(update_positions_system())
-        .add_system(hold_block_system())
-        .add_system(unhold_block_system())
-        .add_system(grid_system())
-        .add_system(find_chase_target_system())
-        .add_system(chase_target_system())
-        .add_system(clean_temporary_system())
-        .add_system(hit_check_system())
-        .build();
+    let mut builder = Schedule::builder();
+    let mut schedule = setup_systems(&mut builder).build();
 
     while !is_key_down(KeyCode::Escape) {
         clear_background(WHITE);

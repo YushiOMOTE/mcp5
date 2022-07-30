@@ -1,4 +1,7 @@
-use legion::{systems::CommandBuffer, *};
+use legion::{
+    systems::{Builder, CommandBuffer},
+    *,
+};
 use macroquad::prelude::*;
 
 #[derive(Clone, Debug)]
@@ -21,8 +24,12 @@ impl Temporary {
 }
 
 #[system(for_each)]
-pub fn clean_temporary(entity: &Entity, temp: &Temporary, command_buffer: &mut CommandBuffer) {
+fn clean_temporary(entity: &Entity, temp: &Temporary, command_buffer: &mut CommandBuffer) {
     if temp.is_dead() {
         command_buffer.remove(*entity);
     }
+}
+
+pub fn setup_systems(builder: &mut Builder) -> &mut Builder {
+    builder.add_system(clean_temporary_system())
 }

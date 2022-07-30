@@ -1,5 +1,5 @@
 use legion::world::SubWorld;
-use legion::{systems::CommandBuffer, *};
+use legion::{systems::Builder, systems::CommandBuffer, *};
 use macroquad::prelude::*;
 use std::collections::HashMap;
 
@@ -11,7 +11,7 @@ use crate::keymap;
 use crate::player::{Player, PlayerPart};
 
 #[system]
-pub fn hold_block(
+fn hold_block(
     world: &mut SubWorld,
     players: &mut Query<(Entity, &Position, &Size, &Direction, &Player)>,
     blocks: &mut Query<(Entity, &Position, &Size, &Block, &Movable)>,
@@ -53,7 +53,7 @@ pub fn hold_block(
 #[system]
 #[read_component(Entity)]
 #[read_component(PlayerPart)]
-pub fn unhold_block(world: &mut SubWorld, command_buffer: &mut CommandBuffer) {
+fn unhold_block(world: &mut SubWorld, command_buffer: &mut CommandBuffer) {
     if !is_key_released(keymap::HOLD) {
         return;
     }
@@ -96,7 +96,7 @@ fn owner_entity(entity: Entity, player_part: PlayerPart) -> Entity {
 #[read_component(Position)]
 #[read_component(Size)]
 #[read_component(Block)]
-pub fn player_block_collision(
+fn player_block_collision(
     world: &mut SubWorld,
     players_pos: &mut Query<(Entity, &mut Position, &PlayerPart)>,
     players: &mut Query<(Entity, &Position, &Size, &PlayerPart)>,
@@ -230,4 +230,11 @@ fn check_collision(player_rect: &Rect, block_rect: &Rect, margin: Vec2) -> Optio
     Some(CollisionInfo {
         adjustment: Vec2::new(adjust_x, adjust_y),
     })
+}
+
+pub fn setup_systems(builder: &mut Builder) -> &mut Builder {
+    builder
+        .add_system(player_block_collision_system())
+        .add_system(hold_block_system())
+        .add_system(unhold_block_system())
 }

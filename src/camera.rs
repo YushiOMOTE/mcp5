@@ -1,4 +1,4 @@
-use legion::*;
+use legion::{systems::Builder, *};
 use macroquad::prelude::*;
 
 use crate::components::{self, Position, Size};
@@ -7,7 +7,7 @@ use crate::components::{self, Position, Size};
 pub struct Camera;
 
 #[system(for_each)]
-pub fn update_camera(position: &Position, size: &Size, _: &Camera) {
+fn update_camera(position: &Position, size: &Size, _: &Camera) {
     let center = components::center(components::to_rect(*position, *size));
     let offset_x = screen_width() / 2.0;
     let offset_y = screen_height() / 2.0;
@@ -19,4 +19,8 @@ pub fn update_camera(position: &Position, size: &Size, _: &Camera) {
     ));
 
     set_camera(&camera);
+}
+
+pub fn setup_systems(builder: &mut Builder) -> &mut Builder {
+    builder.add_system(update_camera_system())
 }

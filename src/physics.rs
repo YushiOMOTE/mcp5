@@ -1,6 +1,6 @@
 use crate::components::Position;
 use derive_deref::{Deref, DerefMut};
-use legion::*;
+use legion::{systems::Builder, *};
 use macroquad::prelude::*;
 
 #[derive(Clone, Copy, Debug, Deref, DerefMut)]
@@ -13,7 +13,11 @@ impl Velocity {
 }
 
 #[system(for_each)]
-pub fn update_positions(pos: &mut Position, vel: &Velocity) {
+fn update_positions(pos: &mut Position, vel: &Velocity) {
     pos.x += vel.x * get_frame_time();
     pos.y += vel.y * get_frame_time();
+}
+
+pub fn setup_systems(builder: &mut Builder) -> &mut Builder {
+    builder.add_system(update_positions_system())
 }

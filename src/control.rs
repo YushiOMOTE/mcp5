@@ -1,4 +1,7 @@
-use legion::{systems::CommandBuffer, *};
+use legion::{
+    systems::{Builder, CommandBuffer},
+    *,
+};
 use macroquad::prelude::*;
 
 use crate::{
@@ -11,7 +14,7 @@ use crate::{
 pub struct Control;
 
 #[system(for_each)]
-pub fn control(
+fn control(
     pos: &mut Position,
     dir: Option<&mut Direction>,
     _: &Control,
@@ -53,4 +56,8 @@ pub fn control(
     if is_key_down(keymap::MOVE_RIGHT) {
         pos.x += step * get_frame_time();
     }
+}
+
+pub fn setup_systems(builder: &mut Builder) -> &mut Builder {
+    builder.add_system(control_system())
 }

@@ -1,4 +1,8 @@
-use legion::{systems::CommandBuffer, world::SubWorld, *};
+use legion::{
+    systems::{Builder, CommandBuffer},
+    world::SubWorld,
+    *,
+};
 use macroquad::prelude::*;
 
 use crate::components::Position;
@@ -56,7 +60,7 @@ impl Life {
 #[read_component(Player)]
 #[read_component(Hitbox)]
 #[write_component(Life)]
-pub fn hit_check(
+fn hit_check(
     world: &mut SubWorld,
     hits: &mut Query<(Entity, &Position, &Hit)>,
     players: &mut Query<(Entity, &Position, &Hitbox, &mut Life, &Player)>,
@@ -80,4 +84,8 @@ pub fn hit_check(
             }
         }
     }
+}
+
+pub fn setup_systems(builder: &mut Builder) -> &mut Builder {
+    builder.add_system(hit_check_system())
 }
