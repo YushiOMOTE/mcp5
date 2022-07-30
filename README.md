@@ -13,3 +13,5 @@ Keys:
 - Z - Quick run
 - X - Hold facing blocks
 - C - Attack
+
+![](./assets/demo.png)
