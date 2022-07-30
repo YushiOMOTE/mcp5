@@ -1,5 +1,8 @@
-use crate::components::{Position, Size};
-use legion::{systems::Builder, *};
+use crate::{
+    components::{Position, Size},
+    map::Terrain,
+};
+use legion::{systems::Builder, world::SubWorld, *};
 use macroquad::prelude::*;
 
 #[derive(Clone, Debug)]
@@ -17,9 +20,21 @@ impl Sprite {
     }
 }
 
-#[system(for_each)]
-fn draw_sprites(pos: &Position, size: &Size, sprite: &Sprite) {
-    draw_rectangle(pos.x, pos.y, size.x, size.y, sprite.color());
+#[system]
+#[read_component(Position)]
+#[read_component(Size)]
+#[read_component(Sprite)]
+#[read_component(Terrain)]
+fn draw_sprites(world: &mut SubWorld) {
+    let mut background = <(&Position, &Size, &Sprite, &Terrain)>::query();
+    let mut foreground = <(&Position, &Size, &Sprite)>::query().filter(!component::<Terrain>());
+
+    for (pos, size, sprite, _) in background.iter(world) {
+        draw_rectangle(pos.x, pos.y, size.x, size.y, sprite.color());
+    }
+    for (pos, size, sprite) in foreground.iter(world) {
+        draw_rectangle(pos.x, pos.y, size.x, size.y, sprite.color());
+    }
 }
 
 pub fn setup_systems(builder: &mut Builder) -> &mut Builder {

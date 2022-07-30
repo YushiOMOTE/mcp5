@@ -3,6 +3,7 @@ use macroquad::prelude::*;
 
 use block::{create_block, create_fixed_block};
 use components::Position;
+use map::load_terrain;
 use player::{create_chaser, create_player};
 
 mod ai;
@@ -14,6 +15,7 @@ mod grid;
 mod hit;
 mod interaction;
 mod keymap;
+mod map;
 mod physics;
 mod player;
 mod sprite;
@@ -43,8 +45,8 @@ async fn main() {
     let mut world = World::default();
     let mut resources = Resources::default();
 
-    world.push(create_player(Position::new(120.0, 120.0)));
-    world.push(create_chaser(Position::new(360.0, 360.0)));
+    world.push(create_player(Position::new(1120.0, 1120.0)));
+    world.push(create_chaser(Position::new(1360.0, 1360.0)));
 
     world.extend(vec![
         create_block(Position::new(0.0, 0.0)),
@@ -62,6 +64,8 @@ async fn main() {
         create_fixed_block(Position::new(360.0, 80.0)),
         create_fixed_block(Position::new(360.0, 120.0)),
     ]);
+
+    load_terrain(&mut world);
 
     let mut builder = Schedule::builder();
     let mut schedule = setup_systems(&mut builder).build();

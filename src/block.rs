@@ -18,7 +18,7 @@ pub fn create_block(pos: Position) -> (Position, Velocity, Block, Size, Sprite, 
         Velocity::new(0.0, 0.0),
         Block,
         Size::new(GRID_SIZE, GRID_SIZE),
-        Sprite::new(RED),
+        Sprite::new(Color::new(0.5, 0.3, 0.0, 1.0)),
         Grid,
         Movable,
     )
@@ -30,7 +30,7 @@ pub fn create_fixed_block(pos: Position) -> (Position, Velocity, Block, Size, Sp
         Velocity::new(0.0, 0.0),
         Block,
         Size::new(GRID_SIZE, GRID_SIZE),
-        Sprite::new(GREEN),
+        Sprite::new(Color::new(0.2, 0.2, 0.2, 1.0)),
         Grid,
     )
 }

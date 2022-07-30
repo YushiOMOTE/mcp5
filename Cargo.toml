@@ -9,3 +9,4 @@ edition = "2021"
 macroquad = "0.3"
 legion = { version = "0.4", default-features = false, features = ["wasm-bindgen", "codegen", "stdweb", "extended-tuple-impls"] }
 derive_deref = "1.1.1"
+noise = "0.7.0"
