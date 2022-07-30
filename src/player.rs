@@ -4,6 +4,7 @@ use crate::{
     components::{Direction, Position, Size},
     control::Control,
     grid::GRID_SIZE,
+    hit::{Hit, Hitbox, Life},
     physics::Velocity,
     sprite::Sprite,
     temporary::Temporary,
@@ -47,6 +48,8 @@ pub fn create_player(
     Sprite,
     Camera,
     Control,
+    Life,
+    Hitbox,
 ) {
     (
         pos,
@@ -58,6 +61,8 @@ pub fn create_player(
         Sprite::new(BLUE),
         Camera,
         Control,
+        Life::new(100, 100),
+        Hitbox::new(0, Rect::new(0.0, 0.0, GRID_SIZE, GRID_SIZE)),
     )
 }
 
@@ -72,6 +77,8 @@ pub fn create_chaser(
     Size,
     Sprite,
     Chase,
+    Life,
+    Hitbox,
 ) {
     (
         pos,
@@ -82,13 +89,15 @@ pub fn create_chaser(
         Size::new(GRID_SIZE, GRID_SIZE),
         Sprite::new(YELLOW),
         Chase::new(),
+        Life::new(100, 100),
+        Hitbox::new(1, Rect::new(0.0, 0.0, GRID_SIZE, GRID_SIZE)),
     )
 }
 
 pub fn create_attack(
     pos: Position,
     dir: Direction,
-) -> (Position, Direction, Velocity, Size, Sprite, Temporary) {
+) -> (Position, Direction, Velocity, Size, Sprite, Temporary, Hit) {
     const SPEED: f32 = 400.0;
     (
         pos,
@@ -102,5 +111,6 @@ pub fn create_attack(
         Size::new(GRID_SIZE, GRID_SIZE),
         Sprite::new(PURPLE),
         Temporary::die_after(0.5),
+        Hit::new(0, -20, Rect::new(0.0, 0.0, GRID_SIZE, GRID_SIZE)),
     )
 }

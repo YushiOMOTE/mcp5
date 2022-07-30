@@ -7,6 +7,7 @@ use camera::update_camera_system;
 use components::Position;
 use control::control_system;
 use grid::grid_system;
+use hit::hit_check_system;
 use interaction::{hold_block_system, player_block_collision_system, unhold_block_system};
 use physics::update_positions_system;
 use player::{create_chaser, create_player};
@@ -19,6 +20,7 @@ mod camera;
 mod components;
 mod control;
 mod grid;
+mod hit;
 mod interaction;
 mod keymap;
 mod physics;
@@ -70,6 +72,7 @@ async fn main() {
         .add_system(find_chase_target_system())
         .add_system(chase_target_system())
         .add_system(clean_temporary_system())
+        .add_system(hit_check_system())
         .build();
 
     while !is_key_down(KeyCode::Escape) {
