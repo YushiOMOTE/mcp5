@@ -71,7 +71,19 @@ pub fn map_gen() -> Map {
 }
 
 #[derive(Debug)]
-pub struct Terrain;
+pub struct Terrain {
+    level: u64,
+}
+
+impl Terrain {
+    fn new(level: u64) -> Self {
+        Self { level }
+    }
+
+    pub fn level(&self) -> u64 {
+        self.level
+    }
+}
 
 const TERRAIN_COLORS: [Color; 10] = [
     Color::new(0.0, 0.4, 0.8, 1.0),
@@ -91,20 +103,7 @@ pub fn create_terrain(position: Position, level: u64) -> (Position, Size, Sprite
         position,
         Size::new(GRID_SIZE, GRID_SIZE),
         Sprite::new(TERRAIN_COLORS[level as usize]),
-        Terrain,
-    )
-}
-
-pub fn create_hazard_terrain(
-    position: Position,
-    level: u64,
-) -> (Position, Size, Sprite, Terrain, Block) {
-    (
-        position,
-        Size::new(GRID_SIZE, GRID_SIZE),
-        Sprite::new(TERRAIN_COLORS[level as usize]),
-        Terrain,
-        Block,
+        Terrain::new(level),
     )
 }
 
@@ -118,25 +117,24 @@ pub fn load_terrain(world: &mut World) {
     //     }
     //     print!("{}", v);
     // });
-    let (terrain, hazard_terrain): (Vec<_>, Vec<_>) = map
-        .map
-        .iter()
-        .enumerate()
-        .map(|(i, level)| {
-            let x = i as u64 % map.width;
-            let y = i as u64 / map.width;
 
-            let x = x as f32 * GRID_SIZE;
-            let y = y as f32 * GRID_SIZE;
+    map.map.iter().enumerate().for_each(|(i, level)| {
+        let x = i as u64 % map.width;
+        let y = i as u64 / map.width;
 
-            (Position::new(x, y), *level)
-        })
-        .partition(|(_, l)| *l >= 2 && *l <= 5);
+        let x = x as f32 * GRID_SIZE;
+        let y = y as f32 * GRID_SIZE;
 
-    world.extend(terrain.iter().map(|(pos, l)| create_terrain(*pos, *l)));
-    world.extend(
-        hazard_terrain
-            .iter()
-            .map(|(pos, l)| create_hazard_terrain(*pos, *l)),
-    );
+        let entity = world.push(create_terrain(Position::new(x, y), *level));
+
+        if is_block_terrain(*level) {
+            if let Some(mut e) = world.entry(entity) {
+                e.add_component(Block);
+            }
+        }
+    });
+}
+
+fn is_block_terrain(level: u64) -> bool {
+    level < 2 || level > 5
 }

@@ -1,9 +1,11 @@
 use crate::{
     components::{Position, Size},
+    grid::GRID_SIZE,
     map::Terrain,
 };
 use legion::{systems::Builder, world::SubWorld, *};
 use macroquad::prelude::*;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 pub struct Sprite {
@@ -29,18 +31,30 @@ fn draw_sprites(world: &mut SubWorld) {
     let mut background = <(&Position, &Size, &Sprite, &Terrain)>::query();
     let mut foreground = <(&Position, &Size, &Sprite)>::query().filter(!component::<Terrain>());
 
-    for (pos, size, sprite, _) in background.iter(world) {
+    let mut heights = HashMap::new();
+
+    for (pos, size, sprite, terrain) in background.iter(world) {
+        let z = -1.0 * terrain.level() as f32 * GRID_SIZE;
+
         draw_cube(
-            vec3(pos.x, pos.y, 16.0),
-            vec3(size.x, size.y, size.y),
+            vec3(pos.x, pos.y, z),
+            vec3(size.x, size.y, GRID_SIZE),
             None,
             sprite.color(),
         );
+
+        heights.insert(to_grid_coord(pos), z);
     }
+
     for (pos, size, sprite) in foreground.iter(world) {
+        let z = match heights.get(&to_grid_coord(pos)) {
+            Some(z) => z - GRID_SIZE,
+            None => 0.0,
+        };
+
         draw_cube(
-            vec3(pos.x, pos.y, 0.0),
-            vec3(size.x, size.y, size.y),
+            vec3(pos.x, pos.y, z),
+            vec3(size.x, size.y, GRID_SIZE),
             None,
             sprite.color(),
         );
@@ -49,4 +63,9 @@ fn draw_sprites(world: &mut SubWorld) {
 
 pub fn setup_systems(builder: &mut Builder) -> &mut Builder {
     builder.add_system(draw_sprites_system())
+}
+
+fn to_grid_coord(pos: &Position) -> (u64, u64) {
+    let grid = GRID_SIZE as u64;
+    (pos.x as u64 / grid, pos.y as u64 / grid)
 }

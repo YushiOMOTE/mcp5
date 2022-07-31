@@ -11,7 +11,7 @@ fn update_camera(position: &Position, size: &Size, _: &Camera) {
     let center = components::center(components::to_rect(*position, *size));
 
     set_camera(&Camera3D {
-        position: vec3(center.x - 20.0, center.y + 80.0, -200.),
+        position: vec3(center.x - 100.0, center.y + 200.0, -400.),
         up: vec3(0., 0., -1.),
         target: vec3(center.x, center.y, 0.),
         ..Default::default()
