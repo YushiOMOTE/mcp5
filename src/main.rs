@@ -47,22 +47,23 @@ async fn main() {
 
     world.push(create_player(Position::new(1120.0, 1120.0)));
     world.push(create_chaser(Position::new(1360.0, 1360.0)));
+    world.push(create_chaser(Position::new(360.0, 360.0)));
 
     world.extend(vec![
-        create_block(Position::new(0.0, 0.0)),
-        create_block(Position::new(0.0, 40.0)),
-        create_block(Position::new(0.0, 80.0)),
-        create_block(Position::new(0.0, 120.0)),
-        create_block(Position::new(80.0, 80.0)),
-        create_block(Position::new(160.0, 80.0)),
-        create_block(Position::new(240.0, 80.0)),
+        create_block(Position::new(1000.0, 1000.0)),
+        create_block(Position::new(1000.0, 1040.0)),
+        create_block(Position::new(1000.0, 1080.0)),
+        create_block(Position::new(1000.0, 1120.0)),
+        create_block(Position::new(1080.0, 1080.0)),
+        create_block(Position::new(1160.0, 1080.0)),
+        create_block(Position::new(1240.0, 1080.0)),
     ]);
 
     world.extend(vec![
-        create_fixed_block(Position::new(360.0, 0.0)),
-        create_fixed_block(Position::new(360.0, 40.0)),
-        create_fixed_block(Position::new(360.0, 80.0)),
-        create_fixed_block(Position::new(360.0, 120.0)),
+        create_fixed_block(Position::new(1360.0, 1000.0)),
+        create_fixed_block(Position::new(1360.0, 1040.0)),
+        create_fixed_block(Position::new(1360.0, 1080.0)),
+        create_fixed_block(Position::new(1360.0, 1120.0)),
     ]);
 
     load_terrain(&mut world);
