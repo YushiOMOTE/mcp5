@@ -136,7 +136,7 @@ fn player_block_collision(
         let adjusted_player_rect = adjust_player_rect(*player_rect, block_rects);
         let adjustment = adjusted_player_rect.point() - player_rect.point();
 
-        **pos += adjustment;
+        **pos += adjustment.extend(0.0);
     }
 }
 
@@ -152,7 +152,7 @@ fn adjust_player_rect<T: std::iter::Iterator<Item = Rect>>(
             None => return player_rect,
         };
 
-        player_rect.offset(collision_info.adjustment)
+        player_rect.offset(collision_info.adjustment.xy())
     })
 }
 
@@ -228,7 +228,7 @@ fn check_collision(player_rect: &Rect, block_rect: &Rect, margin: Vec2) -> Optio
     };
 
     Some(CollisionInfo {
-        adjustment: Vec2::new(adjust_x, adjust_y),
+        adjustment: vec2(adjust_x, adjust_y),
     })
 }
 

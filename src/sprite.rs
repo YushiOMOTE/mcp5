@@ -33,20 +33,19 @@ fn draw_sprites(world: &mut SubWorld) {
 
     let mut heights = HashMap::new();
 
-    for (pos, size, sprite, terrain) in background.iter(world) {
-        let z = -1.0 * terrain.level() as f32 * GRID_SIZE;
-
+    for (pos, size, sprite, _) in background.iter(world) {
         draw_cube(
-            vec3(pos.x, pos.y, z),
-            vec3(size.x, size.y, GRID_SIZE),
+            vec3(pos.x, pos.y, pos.z),
+            vec3(size.x, size.y, size.z),
             None,
             sprite.color(),
         );
 
-        heights.insert(to_grid_coord(pos), z);
+        heights.insert(to_grid_coord(pos), pos.z);
     }
 
     for (pos, size, sprite) in foreground.iter(world) {
+        // TODO: use pos.z
         let z = match heights.get(&to_grid_coord(pos)) {
             Some(z) => z - GRID_SIZE,
             None => 0.0,

@@ -71,19 +71,7 @@ pub fn map_gen() -> Map {
 }
 
 #[derive(Debug)]
-pub struct Terrain {
-    level: u64,
-}
-
-impl Terrain {
-    fn new(level: u64) -> Self {
-        Self { level }
-    }
-
-    pub fn level(&self) -> u64 {
-        self.level
-    }
-}
+pub struct Terrain;
 
 const TERRAIN_COLORS: [Color; 10] = [
     Color::new(0.0, 0.4, 0.8, 1.0),
@@ -101,9 +89,9 @@ const TERRAIN_COLORS: [Color; 10] = [
 pub fn create_terrain(position: Position, level: u64) -> (Position, Size, Sprite, Terrain) {
     (
         position,
-        Size::new(GRID_SIZE, GRID_SIZE),
+        Size::new(GRID_SIZE, GRID_SIZE, GRID_SIZE),
         Sprite::new(TERRAIN_COLORS[level as usize]),
-        Terrain::new(level),
+        Terrain,
     )
 }
 
@@ -124,8 +112,9 @@ pub fn load_terrain(world: &mut World) {
 
         let x = x as f32 * GRID_SIZE;
         let y = y as f32 * GRID_SIZE;
+        let z = *level as f32 * GRID_SIZE * -1.0;
 
-        let entity = world.push(create_terrain(Position::new(x, y), *level));
+        let entity = world.push(create_terrain(Position::new(x, y, z), *level));
 
         if is_block_terrain(*level) {
             if let Some(mut e) = world.entry(entity) {

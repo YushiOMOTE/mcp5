@@ -1,7 +1,5 @@
 use derive_deref::{Deref, DerefMut};
-use macroquad::math::Rect;
-
-use crate::{f32, vec2, Vec2};
+use macroquad::prelude::*;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Direction {
@@ -30,20 +28,20 @@ impl Direction {
 }
 
 #[derive(Clone, Copy, Debug, Deref, DerefMut)]
-pub struct Position(Vec2);
+pub struct Position(Vec3);
 
 impl Position {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self(vec2(x, y))
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        Self(vec3(x, y, z))
     }
 }
 
 #[derive(Clone, Copy, Debug, Deref, DerefMut)]
-pub struct Size(Vec2);
+pub struct Size(Vec3);
 
 impl Size {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self(vec2(x, y))
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        Self(vec3(x, y, z))
     }
 }
 

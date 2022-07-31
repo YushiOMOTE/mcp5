@@ -45,25 +45,25 @@ async fn main() {
     let mut world = World::default();
     let mut resources = Resources::default();
 
-    world.push(create_player(Position::new(1120.0, 1120.0)));
-    world.push(create_chaser(Position::new(1360.0, 1360.0)));
-    world.push(create_chaser(Position::new(360.0, 360.0)));
+    world.push(create_player(Position::new(1120.0, 1120.0, 0.0)));
+    world.push(create_chaser(Position::new(1360.0, 1360.0, 0.0)));
+    world.push(create_chaser(Position::new(360.0, 360.0, 0.0)));
 
     world.extend(vec![
-        create_block(Position::new(1000.0, 1000.0)),
-        create_block(Position::new(1000.0, 1040.0)),
-        create_block(Position::new(1000.0, 1080.0)),
-        create_block(Position::new(1000.0, 1120.0)),
-        create_block(Position::new(1080.0, 1080.0)),
-        create_block(Position::new(1160.0, 1080.0)),
-        create_block(Position::new(1240.0, 1080.0)),
+        create_block(Position::new(1000.0, 1000.0, 0.0)),
+        create_block(Position::new(1000.0, 1040.0, 0.0)),
+        create_block(Position::new(1000.0, 1080.0, 0.0)),
+        create_block(Position::new(1000.0, 1120.0, 0.0)),
+        create_block(Position::new(1080.0, 1080.0, 0.0)),
+        create_block(Position::new(1160.0, 1080.0, 0.0)),
+        create_block(Position::new(1240.0, 1080.0, 0.0)),
     ]);
 
     world.extend(vec![
-        create_fixed_block(Position::new(1360.0, 1000.0)),
-        create_fixed_block(Position::new(1360.0, 1040.0)),
-        create_fixed_block(Position::new(1360.0, 1080.0)),
-        create_fixed_block(Position::new(1360.0, 1120.0)),
+        create_fixed_block(Position::new(1360.0, 1000.0, 0.0)),
+        create_fixed_block(Position::new(1360.0, 1040.0, 0.0)),
+        create_fixed_block(Position::new(1360.0, 1080.0, 0.0)),
+        create_fixed_block(Position::new(1360.0, 1120.0, 0.0)),
     ]);
 
     load_terrain(&mut world);
