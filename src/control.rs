@@ -6,9 +6,13 @@ use macroquad::prelude::*;
 
 use crate::{
     components::{Direction, Position},
+    grid::GRID_SIZE,
     keymap,
     player::create_attack,
 };
+
+const RUN_SPEED: f32 = GRID_SIZE * 8.0;
+const WALK_SPEED: f32 = GRID_SIZE * 6.0;
 
 #[derive(Debug)]
 pub struct Control;
@@ -21,9 +25,9 @@ fn control(
     command_buffer: &mut CommandBuffer,
 ) {
     let step = if is_key_down(keymap::RUN) {
-        400.0
+        RUN_SPEED
     } else {
-        200.0
+        WALK_SPEED
     };
 
     if let Some(dir) = dir {

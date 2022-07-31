@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::{components::Position, grid::GRID_SIZE, player::Player};
 
 const THRESHOLD: f32 = GRID_SIZE * 20.0;
-const SPEED: f32 = GRID_SIZE * 5.0;
+const SPEED: f32 = GRID_SIZE * 6.0;
 
 #[derive(Debug)]
 pub struct Chase {
