@@ -2,10 +2,10 @@ use legion::{systems::Builder, world::SubWorld, *};
 use macroquad::prelude::*;
 use std::collections::HashMap;
 
-use crate::{components::Position, player::Player};
+use crate::{components::Position, grid::GRID_SIZE, player::Player};
 
-const THRESHOLD: f32 = 400.0;
-const SPEED: f32 = 100.0;
+const THRESHOLD: f32 = GRID_SIZE * 20.0;
+const SPEED: f32 = GRID_SIZE * 5.0;
 
 #[derive(Debug)]
 pub struct Chase {

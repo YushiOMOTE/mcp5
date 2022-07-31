@@ -2,7 +2,7 @@ use crate::components::Position;
 use legion::{systems::Builder, *};
 use macroquad::prelude::*;
 
-pub const GRID_SIZE: f32 = 40.0;
+pub const GRID_SIZE: f32 = 16.0;
 
 #[derive(Clone, Debug)]
 pub struct Grid;
