@@ -30,10 +30,20 @@ fn draw_sprites(world: &mut SubWorld) {
     let mut foreground = <(&Position, &Size, &Sprite)>::query().filter(!component::<Terrain>());
 
     for (pos, size, sprite, _) in background.iter(world) {
-        draw_rectangle(pos.x, pos.y, size.x, size.y, sprite.color());
+        draw_cube(
+            vec3(pos.x, pos.y, 16.0),
+            vec3(size.x, size.y, size.y),
+            None,
+            sprite.color(),
+        );
     }
     for (pos, size, sprite) in foreground.iter(world) {
-        draw_rectangle(pos.x, pos.y, size.x, size.y, sprite.color());
+        draw_cube(
+            vec3(pos.x, pos.y, 0.0),
+            vec3(size.x, size.y, size.y),
+            None,
+            sprite.color(),
+        );
     }
 }
 

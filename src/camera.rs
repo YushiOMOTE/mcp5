@@ -9,16 +9,13 @@ pub struct Camera;
 #[system(for_each)]
 fn update_camera(position: &Position, size: &Size, _: &Camera) {
     let center = components::center(components::to_rect(*position, *size));
-    let offset_x = screen_width() / 2.0;
-    let offset_y = screen_height() / 2.0;
-    let camera = Camera2D::from_display_rect(Rect::new(
-        center.x - offset_x,
-        center.y - offset_y,
-        offset_x * 2.0,
-        offset_y * 2.0,
-    ));
 
-    set_camera(&camera);
+    set_camera(&Camera3D {
+        position: vec3(center.x - 20.0, center.y + 80.0, -200.),
+        up: vec3(0., 0., -1.),
+        target: vec3(center.x, center.y, 0.),
+        ..Default::default()
+    });
 }
 
 pub fn setup_systems(builder: &mut Builder) -> &mut Builder {
