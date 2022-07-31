@@ -5,8 +5,8 @@ use noise::{NoiseFn, Perlin, Seedable};
 use crate::{
     block::Block,
     components::{Position, Size},
+    draw::Sprite,
     grid::GRID_SIZE,
-    sprite::Sprite,
 };
 
 pub struct Map {

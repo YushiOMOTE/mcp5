@@ -3,10 +3,10 @@ use crate::{
     camera::Camera,
     components::{Direction, Position, Size},
     control::Control,
+    draw::Sprite,
     grid::GRID_SIZE,
     hit::{Hit, Hitbox, Life},
     physics::Velocity,
-    sprite::Sprite,
     temporary::Temporary,
 };
 use legion::Entity;

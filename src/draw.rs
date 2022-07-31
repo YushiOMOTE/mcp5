@@ -1,7 +1,7 @@
 use crate::{
     components::{Position, Size},
     grid::GRID_SIZE,
-    map::Terrain,
+    terrain::Terrain,
 };
 use legion::{systems::Builder, world::SubWorld, *};
 use macroquad::prelude::*;

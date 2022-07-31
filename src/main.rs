@@ -3,23 +3,23 @@ use macroquad::prelude::*;
 
 use block::{create_block, create_fixed_block};
 use components::Position;
-use map::load_terrain;
 use player::{create_chaser, create_player};
+use terrain::load_terrain;
 
 mod ai;
 mod block;
 mod camera;
 mod components;
 mod control;
+mod draw;
 mod grid;
 mod hit;
 mod interaction;
 mod keymap;
-mod map;
 mod physics;
 mod player;
-mod sprite;
 mod temporary;
+mod terrain;
 
 fn window_conf() -> Conf {
     Conf {
@@ -30,7 +30,7 @@ fn window_conf() -> Conf {
 
 fn setup_systems(builder: &mut Builder) -> &mut Builder {
     camera::setup_systems(builder);
-    sprite::setup_systems(builder);
+    draw::setup_systems(builder);
     control::setup_systems(builder);
     physics::setup_systems(builder);
     interaction::setup_systems(builder);

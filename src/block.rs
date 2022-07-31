@@ -1,7 +1,7 @@
 use crate::{
     components::{Position, Size},
+    draw::Sprite,
     grid::{Grid, GRID_SIZE},
-    sprite::Sprite,
 };
 use macroquad::prelude::*;
 
