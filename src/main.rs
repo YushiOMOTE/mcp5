@@ -16,6 +16,7 @@ mod grid;
 mod hit;
 mod interaction;
 mod keymap;
+mod motion;
 mod physics;
 mod player;
 mod temporary;
