@@ -93,9 +93,6 @@ fn owner_entity(entity: Entity, player_part: PlayerPart) -> Entity {
 }
 
 #[system]
-#[read_component(Position)]
-#[read_component(Size)]
-#[read_component(Block)]
 fn player_block_collision(
     world: &mut SubWorld,
     players_pos: &mut Query<(Entity, &mut Position, &PlayerPart)>,
@@ -112,12 +109,13 @@ fn player_block_collision(
         })
         .collect();
 
-    let player_rects = players
-        .iter(world)
-        .fold(PlayerRects::new(), |mut g, (e, pos, size, pp)| {
-            g.update(*e, *pos, *size, *pp);
-            g
-        });
+    let player_rects =
+        players
+            .iter(world)
+            .fold(PlayerRects::new(), |mut merged, (e, pos, size, pp)| {
+                merged.update(*e, *pos, *size, *pp);
+                merged
+            });
 
     // Update player position
     for (e, pos, pp) in players_pos.iter_mut(world) {
@@ -136,7 +134,7 @@ fn player_block_collision(
         let adjusted_player_rect = adjust_player_rect(*player_rect, block_rects);
         let adjustment = adjusted_player_rect.point() - player_rect.point();
 
-        **pos += adjustment;
+        **pos += adjustment.extend(0.0);
     }
 }
 
@@ -152,7 +150,7 @@ fn adjust_player_rect<T: std::iter::Iterator<Item = Rect>>(
             None => return player_rect,
         };
 
-        player_rect.offset(collision_info.adjustment)
+        player_rect.offset(collision_info.adjustment.xy())
     })
 }
 
@@ -228,7 +226,7 @@ fn check_collision(player_rect: &Rect, block_rect: &Rect, margin: Vec2) -> Optio
     };
 
     Some(CollisionInfo {
-        adjustment: Vec2::new(adjust_x, adjust_y),
+        adjustment: vec2(adjust_x, adjust_y),
     })
 }
 

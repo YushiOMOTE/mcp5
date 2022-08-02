@@ -68,11 +68,18 @@ fn hit_check(
 ) {
     let hits: Vec<_> = hits
         .iter(world)
-        .map(|(e, pos, hit)| (*e, hit.range.offset(**pos), hit.value, hit.group_id))
+        .map(|(e, pos, hit)| {
+            (
+                *e,
+                hit.range.offset(pos.truncate()),
+                hit.value,
+                hit.group_id,
+            )
+        })
         .collect();
 
     for (player_entity, pos, hitbox, life, _) in players.iter_mut(world) {
-        let hitbox_range = hitbox.range.offset(**pos);
+        let hitbox_range = hitbox.range.offset(pos.truncate());
         for (hit_entity, _, value, _) in hits
             .iter()
             .filter(|(_, _, _, id)| *id != hitbox.group_id)
