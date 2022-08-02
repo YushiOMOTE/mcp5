@@ -1,10 +1,10 @@
-use legion::World;
+use legion::{systems::Builder, world::SubWorld, *};
 use macroquad::prelude::*;
 use noise::{NoiseFn, Perlin, Seedable};
 
 use crate::{
     block::Block,
-    components::{Position, Size},
+    components::{self, Position, Size},
     draw::Sprite,
     grid::GRID_SIZE,
 };
@@ -126,4 +126,34 @@ pub fn load_terrain(world: &mut World) {
 
 fn is_block_terrain(level: u64) -> bool {
     level < 2 || level > 5
+}
+
+#[system]
+#[write_component(Position)]
+#[read_component(Size)]
+#[read_component(Terrain)]
+pub fn terrain_collision(world: &mut SubWorld) {
+    let mut things = <(&mut Position, &Size)>::query().filter(!component::<Terrain>());
+    let mut terrains = <(&Position, &Size, &Terrain)>::query();
+
+    let terrain_rects: Vec<_> = terrains
+        .iter(world)
+        .map(|(pos, size, _)| (*pos, components::to_rect(*pos, *size)))
+        .collect();
+
+    for (pos, size) in things.iter_mut(world) {
+        let rect = components::to_rect(*pos, *size);
+        let margined = Rect::new(rect.x + 4.0, rect.y + 4.0, rect.w - 8.0, rect.h - 8.0);
+        let min_z = terrain_rects
+            .iter()
+            .filter(|(_, terrain_rect)| margined.overlaps(&terrain_rect))
+            .map(|(pos, _)| (pos.z * 100.0) as i64)
+            .min()
+            .unwrap_or(0);
+        pos.z = min_z as f32 / 100.0 - size.z;
+    }
+}
+
+pub fn setup_systems(builder: &mut Builder) -> &mut Builder {
+    builder.add_system(terrain_collision_system())
 }

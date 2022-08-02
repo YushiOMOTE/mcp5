@@ -29,16 +29,24 @@ fn window_conf() -> Conf {
     }
 }
 
-fn setup_systems(builder: &mut Builder) -> &mut Builder {
-    camera::setup_systems(builder);
-    draw::setup_systems(builder);
+fn setup_step1_systems(builder: &mut Builder) -> &mut Builder {
     control::setup_systems(builder);
     physics::setup_systems(builder);
-    interaction::setup_systems(builder);
     grid::setup_systems(builder);
-    ai::setup_systems(builder);
     temporary::setup_systems(builder);
-    hit::setup_systems(builder)
+    ai::setup_systems(builder)
+}
+
+fn setup_step2_systems(builder: &mut Builder) -> &mut Builder {
+    terrain::setup_systems(builder);
+    interaction::setup_systems(builder)
+}
+
+fn setup_step3_systems(builder: &mut Builder) -> &mut Builder {
+    motion::setup_systems(builder);
+    hit::setup_systems(builder);
+    camera::setup_systems(builder);
+    draw::setup_systems(builder)
 }
 
 #[macroquad::main(window_conf)]
@@ -70,12 +78,18 @@ async fn main() {
     load_terrain(&mut world);
 
     let mut builder = Schedule::builder();
-    let mut schedule = setup_systems(&mut builder).build();
+    let mut schedule1 = setup_step1_systems(&mut builder).build();
+    let mut builder = Schedule::builder();
+    let mut schedule2 = setup_step2_systems(&mut builder).build();
+    let mut builder = Schedule::builder();
+    let mut schedule3 = setup_step3_systems(&mut builder).build();
 
     while !is_key_down(KeyCode::Escape) {
         clear_background(WHITE);
 
-        schedule.execute(&mut world, &mut resources);
+        schedule1.execute(&mut world, &mut resources);
+        schedule2.execute(&mut world, &mut resources);
+        schedule3.execute(&mut world, &mut resources);
 
         next_frame().await
     }

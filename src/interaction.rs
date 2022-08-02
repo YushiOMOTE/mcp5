@@ -93,9 +93,6 @@ fn owner_entity(entity: Entity, player_part: PlayerPart) -> Entity {
 }
 
 #[system]
-#[read_component(Position)]
-#[read_component(Size)]
-#[read_component(Block)]
 fn player_block_collision(
     world: &mut SubWorld,
     players_pos: &mut Query<(Entity, &mut Position, &PlayerPart)>,
@@ -112,12 +109,13 @@ fn player_block_collision(
         })
         .collect();
 
-    let player_rects = players
-        .iter(world)
-        .fold(PlayerRects::new(), |mut g, (e, pos, size, pp)| {
-            g.update(*e, *pos, *size, *pp);
-            g
-        });
+    let player_rects =
+        players
+            .iter(world)
+            .fold(PlayerRects::new(), |mut merged, (e, pos, size, pp)| {
+                merged.update(*e, *pos, *size, *pp);
+                merged
+            });
 
     // Update player position
     for (e, pos, pp) in players_pos.iter_mut(world) {
