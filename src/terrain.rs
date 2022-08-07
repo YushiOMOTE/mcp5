@@ -1,23 +1,17 @@
-use legion::{
-    systems::{Builder, CommandBuffer},
-    world::SubWorld,
-    *,
-};
+use legion::{systems::CommandBuffer, *};
 use macroquad::prelude::*;
 use noise::{NoiseFn, Perlin, Seedable};
 use rapier3d::prelude::*;
 
 use crate::{
-    block::Block,
-    components::{self, Position, Size},
+    components::{Position, Size},
     draw::Sprite,
-    grid::GRID_SIZE,
 };
 
 pub struct Map {
     pub width: u64,
     pub height: u64,
-    pub map: Vec<u64>,
+    pub map: Vec<f32>,
 }
 
 pub struct Config {
@@ -27,7 +21,7 @@ pub struct Config {
     pub octaves: usize,
 }
 
-pub fn proc_gen(width: u64, height: u64, cfg: Config) -> Vec<u64> {
+pub fn proc_gen(width: u64, height: u64, cfg: Config) -> Vec<f32> {
     let perlin = Perlin::new().set_seed(cfg.seed);
     let redist = cfg.redistribution;
     let freq = cfg.freq;
@@ -46,9 +40,7 @@ pub fn proc_gen(width: u64, height: u64, cfg: Config) -> Vec<u64> {
                 let modifier = 1.0 / power;
                 acc + modifier * perlin.get([nx * freq * power, ny * freq * power])
             });
-            let value = (value.powf(redist) + 1.0) / 2.0;
-
-            ((value * 10.0) as u64).min(9)
+            (((value.powf(redist) + 1.0) / 2.0) as f32).max(0.0)
         })
         .collect()
 }
@@ -75,27 +67,28 @@ pub fn map_gen() -> Map {
     }
 }
 
+const SIZE: f32 = 8.0;
+
 #[derive(Debug)]
 pub struct Terrain;
 
-const TERRAIN_COLORS: [Color; 10] = [
-    Color::new(0.0, 0.4, 0.8, 1.0),
-    Color::new(0.2, 0.79, 1.0, 1.0),
-    Color::new(1.0, 0.8, 0.6, 1.0),
-    Color::new(1.0, 0.73, 0.4, 1.0),
-    Color::new(0.4, 0.8, 0.0, 1.0),
-    Color::new(0.29, 0.6, 0.0, 1.0),
-    Color::new(0.8, 0.4, 0.0, 1.0),
-    Color::new(0.6, 0.29, 0.0, 1.0),
-    Color::new(0.4, 0.2, 0.0, 1.0),
-    Color::new(0.2, 0.09, 0.0, 1.0),
-];
+fn color(level: f32) -> Color {
+    if level <= 0.1 {
+        Color::new(0.0, level * 2.0, 0.5 + level * 2.0, 1.0)
+    } else if level > 0.1 && level <= 0.3 {
+        Color::new(1.0 - level * 0.1, 1.0 - level, 1.0 - level, 1.0)
+    } else if level > 0.3 && level <= 0.8 {
+        Color::new(0.1, 1.0 - level, 0.1, 1.0)
+    } else {
+        Color::new(0.5 - (level - 0.8), 0.3 - (level - 0.8), 0.0, 1.0)
+    }
+}
 
 pub fn create_terrain(
     rigid_body_set: &mut RigidBodySet,
     collider_set: &mut ColliderSet,
     pos: Position,
-    level: u64,
+    level: f32,
 ) -> (
     Position,
     Size,
@@ -104,9 +97,12 @@ pub fn create_terrain(
     RigidBodyHandle,
     ColliderHandle,
 ) {
-    let size = Size::new(GRID_SIZE, GRID_SIZE, GRID_SIZE);
+    let half_heigh = (level * 10.0).floor() * SIZE + SIZE;
+    let size = Size::new(SIZE, SIZE, half_heigh * 2.0);
 
-    let collider = ColliderBuilder::cuboid(size.x, size.y, size.z).build();
+    let collider = ColliderBuilder::cuboid(size.x * 0.5, size.y * 0.5, size.z * 0.5)
+        .friction(0.0)
+        .build();
 
     let rigid_body = RigidBodyBuilder::fixed()
         .translation(vector![pos.x, pos.y, pos.z])
@@ -119,7 +115,7 @@ pub fn create_terrain(
     (
         pos,
         size,
-        Sprite::new(TERRAIN_COLORS[level as usize]),
+        Sprite::new(color(level)),
         Terrain,
         rigid_body_handle,
         collider_handle,
@@ -138,14 +134,13 @@ pub fn load_terrain(
         let x = i as u64 % map.width;
         let y = i as u64 / map.width;
 
-        let x = x as f32 * GRID_SIZE;
-        let y = y as f32 * GRID_SIZE;
-        let z = *level as f32 * GRID_SIZE * -1.0;
+        let x = x as f32 * SIZE;
+        let y = y as f32 * SIZE;
 
         command_buffer.push(create_terrain(
             rigid_body_set,
             collider_set,
-            Position::new(x, y, z),
+            Position::new(x, y, 0.0),
             *level,
         ));
     });

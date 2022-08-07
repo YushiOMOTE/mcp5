@@ -1,10 +1,9 @@
 use macroquad::prelude::*;
 
-pub const MOVE_UP: KeyCode = KeyCode::W;
-pub const MOVE_DOWN: KeyCode = KeyCode::S;
-pub const MOVE_LEFT: KeyCode = KeyCode::A;
-pub const MOVE_RIGHT: KeyCode = KeyCode::D;
+pub const MOVE_POS_Y: KeyCode = KeyCode::W;
+pub const MOVE_NEG_X: KeyCode = KeyCode::A;
+pub const MOVE_NEG_Y: KeyCode = KeyCode::S;
+pub const MOVE_POS_X: KeyCode = KeyCode::D;
 
 pub const JUMP: KeyCode = KeyCode::J;
-pub const RUN: KeyCode = KeyCode::Z;
-pub const ATTACK: KeyCode = KeyCode::C;
+pub const RUN: KeyCode = KeyCode::K;

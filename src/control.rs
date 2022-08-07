@@ -1,26 +1,19 @@
-use legion::{systems::CommandBuffer, *};
+use legion::*;
 use macroquad::prelude::*;
 use rapier3d::prelude::*;
 
-use crate::{
-    components::{Direction, Position},
-    grid::GRID_SIZE,
-    keymap,
-};
+use crate::keymap;
 
-const RUN_SPEED: f32 = GRID_SIZE * 8.0;
-const WALK_SPEED: f32 = GRID_SIZE * 6.0;
+const RUN_SPEED: f32 = 80.0;
+const WALK_SPEED: f32 = 40.0;
 
 #[derive(Debug)]
 pub struct Control;
 
 #[system(for_each)]
 pub fn control(
-    pos: &Position,
-    dir: Option<&mut Direction>,
     _: &Control,
     rigid_body_handle: &RigidBodyHandle,
-    command_buffer: &mut CommandBuffer,
     #[resource] rigid_body_set: &mut RigidBodySet,
 ) {
     let step = if is_key_down(keymap::RUN) {
@@ -29,51 +22,68 @@ pub fn control(
         WALK_SPEED
     };
 
-    if let Some(dir) = dir {
-        if is_key_down(keymap::MOVE_DOWN) {
-            dir.down();
-        }
-        if is_key_down(keymap::MOVE_UP) {
-            dir.up();
-        }
-        if is_key_down(keymap::MOVE_LEFT) {
-            dir.left();
-        }
-        if is_key_down(keymap::MOVE_RIGHT) {
-            dir.right();
-        }
-        if is_key_pressed(keymap::ATTACK) {}
-    }
-
     if is_key_down(keymap::JUMP) {
-        apply_impulse(
+        jump(
             rigid_body_set,
             rigid_body_handle,
-            vector![0.0, 0.0, -1000.0],
+            vector![0.0, 0.0, 10000.0],
         );
     }
 
-    if is_key_down(keymap::MOVE_DOWN) {
-        apply_impulse(rigid_body_set, rigid_body_handle, vector![0.0, 500.0, 0.0]);
-    }
-    if is_key_down(keymap::MOVE_UP) {
-        apply_impulse(rigid_body_set, rigid_body_handle, vector![0.0, -500.0, 0.0]);
-    }
-    if is_key_down(keymap::MOVE_LEFT) {
-        apply_impulse(rigid_body_set, rigid_body_handle, vector![-500.0, 0.0, 0.0]);
-    }
-    if is_key_down(keymap::MOVE_RIGHT) {
-        apply_impulse(rigid_body_set, rigid_body_handle, vector![500.0, 0.0, 0.0]);
+    let pos_y = if is_key_down(keymap::MOVE_POS_Y) {
+        step
+    } else {
+        0.0
+    };
+    let neg_y = if is_key_down(keymap::MOVE_NEG_Y) {
+        step
+    } else {
+        0.0
+    };
+
+    let pos_x = if is_key_down(keymap::MOVE_POS_X) {
+        step
+    } else {
+        0.0
+    };
+    let neg_x = if is_key_down(keymap::MOVE_NEG_X) {
+        step
+    } else {
+        0.0
+    };
+
+    set_velocity(
+        rigid_body_set,
+        rigid_body_handle,
+        vector![pos_x - neg_x, pos_y - neg_y, 0.0],
+    );
+}
+
+fn set_velocity(
+    rigid_body_set: &mut RigidBodySet,
+    rigid_body_handle: &RigidBodyHandle,
+    vel: Vector<f32>,
+) {
+    if let Some(body) = rigid_body_set.get_mut(*rigid_body_handle) {
+        body.set_linvel(vector![vel.x, vel.y, body.linvel().z], true);
     }
 }
 
-fn apply_impulse(
+fn jump(
     rigid_body_set: &mut RigidBodySet,
     rigid_body_handle: &RigidBodyHandle,
     impulse: Vector<f32>,
 ) {
     if let Some(body) = rigid_body_set.get_mut(*rigid_body_handle) {
-        body.reset_forces(true);
-        body.apply_impulse(impulse, true);
+        if is_on_the_ground(body) {
+            body.apply_impulse(impulse, true);
+        }
     }
+}
+
+fn is_on_the_ground(body: &RigidBody) -> bool {
+    let gravity = vector![0.0, 0.0, -9.81];
+    let energy1 = body.gravitational_potential_energy(0.2, gravity);
+    let energy2 = body.gravitational_potential_energy(0.5, gravity);
+    energy1 == energy2
 }

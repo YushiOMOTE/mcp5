@@ -1,26 +1,16 @@
-use crate::components::{Position, Size};
-use derive_deref::{Deref, DerefMut};
+use crate::components::Position;
 use legion::{world::SubWorld, *};
 use macroquad::prelude::*;
 use rapier3d::prelude::*;
 
-#[derive(Clone, Copy, Debug, Deref, DerefMut)]
-pub struct Velocity(Vec3);
-
-impl Velocity {
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self(vec3(x, y, z))
-    }
-}
-
 #[derive(Debug, Clone)]
-pub struct Body;
+pub struct FixedBody;
 
 #[derive(Debug, Clone)]
 pub struct Gravity(Vector<f32>);
 
 pub fn setup_resources(resources: &mut Resources) {
-    resources.insert(Gravity(vector![0.0, 0.0, 9.81 * 10.0]));
+    resources.insert(Gravity(vector![0.0, 0.0, -9.81]));
     resources.insert(IntegrationParameters::default());
     resources.insert(RigidBodySet::new());
     resources.insert(ColliderSet::new());
@@ -35,7 +25,6 @@ pub fn setup_resources(resources: &mut Resources) {
 
 #[system]
 #[read_component(RigidBodyHandle)]
-#[read_component(Body)]
 #[write_component(Position)]
 pub fn update_physics(
     world: &mut SubWorld,
@@ -74,10 +63,10 @@ fn update_positions(
     rigid_body_set: &mut RigidBodySet,
     island_manager: &IslandManager,
 ) {
-    let mut bodies = <(&mut Position, &Body, &RigidBodyHandle)>::query();
+    let mut bodies = <(&mut Position, &RigidBodyHandle)>::query().filter(!component::<FixedBody>());
     let mut handle_pos_map: std::collections::HashMap<_, _> = bodies
         .iter_mut(world)
-        .map(|(pos, _, handle)| (handle, pos))
+        .map(|(pos, handle)| (handle, pos))
         .collect();
 
     for handle in island_manager.active_dynamic_bodies() {

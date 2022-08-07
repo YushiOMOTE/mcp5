@@ -1,12 +1,9 @@
 use crate::{
     ai::chase::Chase,
     camera::Camera,
-    components::{Direction, Position, Size},
+    components::{Position, Size},
     control::Control,
     draw::Sprite,
-    grid::GRID_SIZE,
-    physics::{Body, Velocity},
-    temporary::Temporary,
 };
 use legion::{systems::CommandBuffer, *};
 use macroquad::prelude::*;
@@ -21,26 +18,26 @@ pub fn create_player(
     pos: Position,
 ) -> (
     Position,
-    Direction,
     Player,
     Size,
     Sprite,
     Camera,
     Control,
-    Body,
     RigidBodyHandle,
     ColliderHandle,
 ) {
-    let size = Size::new(GRID_SIZE, GRID_SIZE, GRID_SIZE);
+    let size = Size::new(8.0, 8.0, 16.0);
 
-    let collider = ColliderBuilder::cuboid(size.x, size.y, size.z)
+    let collider = ColliderBuilder::cuboid(size.x * 0.5, size.y * 0.5, size.z * 0.5)
         .mass(100.0)
+        .friction(0.0)
         .build();
 
     let rigid_body = RigidBodyBuilder::dynamic()
         .translation(vector![pos.x, pos.y, pos.z])
         .enabled_rotations(false, false, true)
         .can_sleep(false)
+        .gravity_scale(20.0)
         .build();
     let rigid_body_handle = rigid_body_set.insert(rigid_body);
 
@@ -49,13 +46,11 @@ pub fn create_player(
 
     (
         pos,
-        Direction::Down,
         Player,
         size,
-        Sprite::new(BLUE),
+        Sprite::new(RED),
         Camera,
         Control,
-        Body,
         rigid_body_handle,
         collider_handle,
     )
@@ -66,12 +61,11 @@ pub fn create_chaser(
     rigid_body_set: &mut RigidBodySet,
     collider_set: &mut ColliderSet,
     pos: Position,
-) -> (Position, Direction, Player, Size, Sprite, Chase) {
+) -> (Position, Player, Size, Sprite, Chase) {
     (
         pos,
-        Direction::Down,
         Player,
-        Size::new(GRID_SIZE, GRID_SIZE, GRID_SIZE),
+        Size::new(8.0, 8.0, 8.0),
         Sprite::new(YELLOW),
         Chase::new(),
     )
@@ -86,16 +80,6 @@ pub fn load_player(
     command_buffer.push(create_player(
         rigid_body_set,
         collider_set,
-        Position::new(120.0, 120.0, -500.0),
+        Position::new(120.0, 120.0, 200.0),
     ));
-    // command_buffer.push(create_chaser(
-    //     rigid_body_set,
-    //     collider_set,
-    //     Position::new(360.0, 360.0, 0.0),
-    // ));
-    // command_buffer.push(create_chaser(
-    //     rigid_body_set,
-    //     collider_set,
-    //     Position::new(560.0, 560.0, 0.0),
-    // ));
 }

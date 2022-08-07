@@ -1,4 +1,4 @@
-use legion::{systems::Builder, *};
+use legion::*;
 use macroquad::prelude::*;
 
 #[allow(unused)]
@@ -8,7 +8,6 @@ mod camera;
 mod components;
 mod control;
 mod draw;
-mod grid;
 mod keymap;
 mod physics;
 mod player;
@@ -33,6 +32,7 @@ async fn main() {
     let mut init = Schedule::builder()
         .add_system(terrain::load_terrain_system())
         .add_system(player::load_player_system())
+        .add_system(block::load_blocks_system())
         .build();
 
     let mut schedule = Schedule::builder()

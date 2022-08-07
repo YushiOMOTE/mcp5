@@ -1,6 +1,5 @@
 use crate::{
     components::{Position, Size},
-    grid::GRID_SIZE,
     terrain::Terrain,
 };
 use legion::{world::SubWorld, *};
@@ -31,7 +30,7 @@ pub fn draw(world: &mut SubWorld) {
     for (pos, size, sprite) in items.iter(world) {
         draw_cube(
             vec3(pos.x, pos.y, pos.z),
-            vec3(size.x, size.y, GRID_SIZE),
+            vec3(size.x, size.y, size.z),
             None,
             sprite.color(),
         );
