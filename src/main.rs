@@ -1,24 +1,18 @@
-use legion::{systems::Builder, *};
+use legion::*;
 use macroquad::prelude::*;
 
-use block::{create_block, create_fixed_block};
-use components::Position;
-use player::{create_chaser, create_player};
-use terrain::load_terrain;
-
+#[allow(unused)]
 mod ai;
 mod block;
 mod camera;
 mod components;
 mod control;
 mod draw;
-mod grid;
-mod hit;
-mod interaction;
 mod keymap;
-mod motion;
+mod map;
 mod physics;
 mod player;
+#[allow(unused)]
 mod temporary;
 mod terrain;
 
@@ -29,67 +23,32 @@ fn window_conf() -> Conf {
     }
 }
 
-fn setup_step1_systems(builder: &mut Builder) -> &mut Builder {
-    control::setup_systems(builder);
-    physics::setup_systems(builder);
-    grid::setup_systems(builder);
-    temporary::setup_systems(builder);
-    ai::setup_systems(builder)
-}
-
-fn setup_step2_systems(builder: &mut Builder) -> &mut Builder {
-    terrain::setup_systems(builder);
-    interaction::setup_systems(builder)
-}
-
-fn setup_step3_systems(builder: &mut Builder) -> &mut Builder {
-    motion::setup_systems(builder);
-    hit::setup_systems(builder);
-    camera::setup_systems(builder);
-    draw::setup_systems(builder)
-}
-
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut world = World::default();
     let mut resources = Resources::default();
 
-    world.push(create_player(Position::new(1120.0, 1120.0, 0.0)));
-    world.push(create_chaser(Position::new(1360.0, 1360.0, 0.0)));
-    world.push(create_chaser(Position::new(360.0, 360.0, 0.0)));
+    physics::setup_resources(&mut resources);
 
-    world.extend(vec![
-        create_block(Position::new(1000.0, 1000.0, 0.0)),
-        create_block(Position::new(1000.0, 1040.0, 0.0)),
-        create_block(Position::new(1000.0, 1080.0, 0.0)),
-        create_block(Position::new(1000.0, 1120.0, 0.0)),
-        create_block(Position::new(1080.0, 1080.0, 0.0)),
-        create_block(Position::new(1160.0, 1080.0, 0.0)),
-        create_block(Position::new(1240.0, 1080.0, 0.0)),
-    ]);
+    let mut init = Schedule::builder()
+        .add_system(player::load_player_system())
+        .add_system(block::load_blocks_system())
+        .build();
 
-    world.extend(vec![
-        create_fixed_block(Position::new(1360.0, 1000.0, 0.0)),
-        create_fixed_block(Position::new(1360.0, 1040.0, 0.0)),
-        create_fixed_block(Position::new(1360.0, 1080.0, 0.0)),
-        create_fixed_block(Position::new(1360.0, 1120.0, 0.0)),
-    ]);
+    let mut schedule = Schedule::builder()
+        .add_system(terrain::load_terrain_system())
+        .add_system(physics::update_physics_system())
+        .add_system(control::control_system())
+        .add_system(camera::update_camera_system())
+        .add_system(draw::draw_system())
+        .build();
 
-    load_terrain(&mut world);
-
-    let mut builder = Schedule::builder();
-    let mut schedule1 = setup_step1_systems(&mut builder).build();
-    let mut builder = Schedule::builder();
-    let mut schedule2 = setup_step2_systems(&mut builder).build();
-    let mut builder = Schedule::builder();
-    let mut schedule3 = setup_step3_systems(&mut builder).build();
+    init.execute(&mut world, &mut resources);
 
     while !is_key_down(KeyCode::Escape) {
         clear_background(WHITE);
 
-        schedule1.execute(&mut world, &mut resources);
-        schedule2.execute(&mut world, &mut resources);
-        schedule3.execute(&mut world, &mut resources);
+        schedule.execute(&mut world, &mut resources);
 
         next_frame().await
     }

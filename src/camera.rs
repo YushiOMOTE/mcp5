@@ -1,23 +1,19 @@
-use legion::{systems::Builder, *};
+use legion::*;
 use macroquad::prelude::*;
 
-use crate::components::{self, Position, Size};
+use crate::components::{Position, Size};
 
 #[derive(Debug)]
 pub struct Camera;
 
 #[system(for_each)]
-fn update_camera(position: &Position, size: &Size, _: &Camera) {
-    let center = components::center(components::to_rect(*position, *size));
+pub fn update_camera(position: &Position, size: &Size, _: &Camera) {
+    let target = **position + **size * 0.5;
 
     set_camera(&Camera3D {
-        position: vec3(center.x - 100.0, center.y + 200.0, -400.),
-        up: vec3(0., 0., -1.),
-        target: vec3(center.x, center.y, 0.),
+        position: vec3(target.x - 30.0, target.y - 50.0, target.z + 120.0),
+        up: vec3(0., 0., 1.),
+        target,
         ..Default::default()
     });
-}
-
-pub fn setup_systems(builder: &mut Builder) -> &mut Builder {
-    builder.add_system(update_camera_system())
 }

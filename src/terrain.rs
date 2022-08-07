@@ -1,159 +1,206 @@
-use legion::{systems::Builder, world::SubWorld, *};
+use legion::{systems::CommandBuffer, world::SubWorld, *};
 use macroquad::prelude::*;
-use noise::{NoiseFn, Perlin, Seedable};
+use rapier3d::prelude::*;
+use std::collections::HashSet;
 
 use crate::{
-    block::Block,
-    components::{self, Position, Size},
+    components::{Position, Size},
     draw::Sprite,
-    grid::GRID_SIZE,
+    map::{map_cfg, ProcGen},
+    physics::RemoveBuffer,
 };
 
-pub struct Map {
-    pub width: u64,
-    pub height: u64,
-    pub map: Vec<u64>,
-}
-
-pub struct Config {
-    pub seed: u32,
-    pub redistribution: f64,
-    pub freq: f64,
-    pub octaves: usize,
-}
-
-pub fn proc_gen(width: u64, height: u64, cfg: Config) -> Vec<u64> {
-    let perlin = Perlin::new().set_seed(cfg.seed);
-    let redist = cfg.redistribution;
-    let freq = cfg.freq;
-    let octaves = cfg.octaves;
-
-    (0..width * height)
-        .map(|i| {
-            let x = i % width;
-            let y = i / width;
-
-            let nx = x as f64 / width as f64;
-            let ny = y as f64 / width as f64;
-
-            let value = (0..octaves).fold(0.0, |acc, n| {
-                let power = 2.0f64.powf(n as f64);
-                let modifier = 1.0 / power;
-                acc + modifier * perlin.get([nx * freq * power, ny * freq * power])
-            });
-            let value = (value.powf(redist) + 1.0) / 2.0;
-
-            ((value * 10.0) as u64).min(9)
-        })
-        .collect()
-}
-
-pub fn map_gen() -> Map {
-    const MAP_WIDTH: u64 = 100;
-    const MAP_HEIGHT: u64 = 100;
-
-    let map = proc_gen(
-        MAP_WIDTH,
-        MAP_HEIGHT,
-        Config {
-            seed: 0,
-            redistribution: 1.0,
-            freq: 2.0,
-            octaves: 3,
-        },
-    );
-
-    Map {
-        width: MAP_WIDTH,
-        height: MAP_HEIGHT,
-        map,
-    }
-}
+const SIZE: f32 = 8.0;
 
 #[derive(Debug)]
 pub struct Terrain;
 
-const TERRAIN_COLORS: [Color; 10] = [
-    Color::new(0.0, 0.4, 0.8, 1.0),
-    Color::new(0.2, 0.79, 1.0, 1.0),
-    Color::new(1.0, 0.8, 0.6, 1.0),
-    Color::new(1.0, 0.73, 0.4, 1.0),
-    Color::new(0.4, 0.8, 0.0, 1.0),
-    Color::new(0.29, 0.6, 0.0, 1.0),
-    Color::new(0.8, 0.4, 0.0, 1.0),
-    Color::new(0.6, 0.29, 0.0, 1.0),
-    Color::new(0.4, 0.2, 0.0, 1.0),
-    Color::new(0.2, 0.09, 0.0, 1.0),
-];
-
-pub fn create_terrain(position: Position, level: u64) -> (Position, Size, Sprite, Terrain) {
-    (
-        position,
-        Size::new(GRID_SIZE, GRID_SIZE, GRID_SIZE),
-        Sprite::new(TERRAIN_COLORS[level as usize]),
-        Terrain,
-    )
+#[derive(Debug)]
+pub struct Loader {
+    last_time: f64,
+    last_pos: Vec3,
+    range: Option<MapRange>,
 }
 
-pub fn load_terrain(world: &mut World) {
-    let map = map_gen();
-
-    // Uncomment for debug map generation
-    // map.map.iter().enumerate().for_each(|(i, v)| {
-    //     if i % map.width as usize == 0 {
-    //         println!()
-    //     }
-    //     print!("{}", v);
-    // });
-
-    map.map.iter().enumerate().for_each(|(i, level)| {
-        let x = i as u64 % map.width;
-        let y = i as u64 / map.width;
-
-        let x = x as f32 * GRID_SIZE;
-        let y = y as f32 * GRID_SIZE;
-        let z = *level as f32 * GRID_SIZE * -1.0;
-
-        let entity = world.push(create_terrain(Position::new(x, y, z), *level));
-
-        if is_block_terrain(*level) {
-            if let Some(mut e) = world.entry(entity) {
-                e.add_component(Block);
-            }
+impl Loader {
+    pub fn new() -> Self {
+        Self {
+            last_time: get_time(),
+            last_pos: vec3(0.0, 0.0, 0.0),
+            range: None,
         }
-    });
-}
-
-fn is_block_terrain(level: u64) -> bool {
-    level < 2 || level > 5
-}
-
-#[system]
-#[write_component(Position)]
-#[read_component(Size)]
-#[read_component(Terrain)]
-pub fn terrain_collision(world: &mut SubWorld) {
-    let mut things = <(&mut Position, &Size)>::query().filter(!component::<Terrain>());
-    let mut terrains = <(&Position, &Size, &Terrain)>::query();
-
-    let terrain_rects: Vec<_> = terrains
-        .iter(world)
-        .map(|(pos, size, _)| (*pos, components::to_rect(*pos, *size)))
-        .collect();
-
-    for (pos, size) in things.iter_mut(world) {
-        let rect = components::to_rect(*pos, *size);
-        let margined = Rect::new(rect.x + 4.0, rect.y + 4.0, rect.w - 8.0, rect.h - 8.0);
-        let min_z = terrain_rects
-            .iter()
-            .filter(|(_, terrain_rect)| margined.overlaps(&terrain_rect))
-            .map(|(pos, _)| (pos.z * 100.0) as i64)
-            .min()
-            .unwrap_or(0);
-        pos.z = min_z as f32 / 100.0 - size.z;
     }
 }
 
-pub fn setup_systems(builder: &mut Builder) -> &mut Builder {
-    builder.add_system(terrain_collision_system())
+type Add = Vec<(i64, i64)>;
+type Remove = HashSet<(i64, i64)>;
+
+#[derive(Debug)]
+pub struct MapRange {
+    pub base_x: i64,
+    pub base_y: i64,
+    pub width: i64,
+    pub height: i64,
+}
+
+impl MapRange {
+    fn new(base_x: i64, base_y: i64, width: i64, height: i64) -> Self {
+        Self {
+            base_x,
+            base_y,
+            width,
+            height,
+        }
+    }
+
+    fn contains(&self, pos: (i64, i64)) -> bool {
+        pos.0 >= self.base_x
+            && pos.0 < self.base_x + self.width
+            && pos.1 >= self.base_y
+            && pos.1 < self.base_y + self.height
+    }
+
+    fn diff(&self, old: &MapRange) -> (Add, Remove) {
+        let add = (0..self.width)
+            .map(|x| (0..self.height).map(move |y| (x + self.base_x, y + self.base_y)))
+            .flatten()
+            .filter(|p| !old.contains(*p))
+            .collect();
+        let remove = (0..old.width)
+            .map(|x| (0..old.height).map(move |y| (x + old.base_x, y + old.base_y)))
+            .flatten()
+            .filter(|p| !self.contains(*p))
+            .collect();
+
+        (add, remove)
+    }
+
+    fn to_add(&self) -> (Add, Remove) {
+        (
+            (0..self.width)
+                .map(|x| (0..self.height).map(move |y| (x + self.base_x, y + self.base_y)))
+                .flatten()
+                .collect(),
+            HashSet::new(),
+        )
+    }
+}
+
+fn color(level: f32) -> Color {
+    if level <= 0.1 {
+        Color::new(0.0, level * 2.0, 0.5 + level * 2.0, 1.0)
+    } else if level > 0.1 && level <= 0.3 {
+        Color::new(1.0 - level * 0.1, 1.0 - level, 1.0 - level, 1.0)
+    } else if level > 0.3 && level <= 0.8 {
+        Color::new(0.1, 1.0 - level, 0.1, 1.0)
+    } else {
+        Color::new(0.5 - (level - 0.8), 0.3 - (level - 0.8), 0.0, 1.0)
+    }
+}
+
+pub fn create_terrain(
+    rigid_body_set: &mut RigidBodySet,
+    collider_set: &mut ColliderSet,
+    pos: Position,
+    level: f32,
+) -> (
+    Position,
+    Size,
+    Sprite,
+    Terrain,
+    RigidBodyHandle,
+    ColliderHandle,
+) {
+    let half_heigh = (level * 10.0).floor() * SIZE + SIZE;
+    let size = Size::new(SIZE, SIZE, half_heigh * 2.0);
+
+    let collider = ColliderBuilder::cuboid(size.x * 0.5, size.y * 0.5, size.z * 0.5)
+        .friction(0.0)
+        .build();
+
+    let rigid_body = RigidBodyBuilder::fixed()
+        .translation(vector![pos.x, pos.y, pos.z])
+        .build();
+    let rigid_body_handle = rigid_body_set.insert(rigid_body);
+
+    let collider_handle =
+        collider_set.insert_with_parent(collider, rigid_body_handle, rigid_body_set);
+
+    (
+        pos,
+        size,
+        Sprite::new(color(level)),
+        Terrain,
+        rigid_body_handle,
+        collider_handle,
+    )
+}
+
+#[system]
+pub fn load_terrain(
+    world: &mut SubWorld,
+    loaders: &mut Query<(&Position, &mut Loader)>,
+    terrain: &mut Query<(Entity, &Position, &RigidBodyHandle, &Terrain)>,
+    #[resource] rigid_body_set: &mut RigidBodySet,
+    #[resource] collider_set: &mut ColliderSet,
+    #[resource] remove_buffer: &mut RemoveBuffer,
+    command_buffer: &mut CommandBuffer,
+) {
+    let (pos, loader) = match loaders.iter_mut(world).next() {
+        Some((pos, loader)) => (*pos, loader),
+        None => return,
+    };
+
+    let now = get_time();
+    if now - loader.last_time <= 0.03 {
+        return;
+    }
+    if pos.distance(loader.last_pos) <= 3.0 {
+        return;
+    }
+
+    loader.last_time = now;
+    loader.last_pos = *pos;
+
+    let w = screen_width() * 1.2;
+    let h = screen_height() * 1.2;
+    let x = pos.x - w * 0.5;
+    let y = pos.y - h * 0.5;
+
+    let tx = (x / SIZE) as i64;
+    let ty = (y / SIZE) as i64;
+    let tw = (w / SIZE) as i64;
+    let th = (h / SIZE) as i64;
+
+    let range = MapRange::new(tx, ty, tw, th);
+
+    let (add, remove) = match &loader.range {
+        Some(old) => range.diff(&old),
+        None => range.to_add(),
+    };
+
+    loader.range = Some(range);
+
+    for (entity, terrain_pos, rigid_body_handle, _) in terrain.iter(world) {
+        let x = (terrain_pos.x / SIZE) as i64;
+        let y = (terrain_pos.y / SIZE) as i64;
+
+        if remove.contains(&(x, y)) {
+            command_buffer.remove(*entity);
+            remove_buffer.push(*rigid_body_handle);
+        }
+    }
+
+    let gen = ProcGen::new(map_cfg());
+
+    for (x, y) in add {
+        let level = gen.gen(x, y);
+
+        command_buffer.push(create_terrain(
+            rigid_body_set,
+            collider_set,
+            Position::new(x as f32 * SIZE, y as f32 * SIZE, 0.0),
+            level,
+        ));
+    }
 }
