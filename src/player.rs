@@ -4,6 +4,7 @@ use crate::{
     components::{Position, Size},
     control::Control,
     draw::Sprite,
+    terrain::Loader,
 };
 use legion::{systems::CommandBuffer, *};
 use macroquad::prelude::*;
@@ -23,6 +24,7 @@ pub fn create_player(
     Sprite,
     Camera,
     Control,
+    Loader,
     RigidBodyHandle,
     ColliderHandle,
 ) {
@@ -51,6 +53,7 @@ pub fn create_player(
         Sprite::new(RED),
         Camera,
         Control,
+        Loader::new(),
         rigid_body_handle,
         collider_handle,
     )

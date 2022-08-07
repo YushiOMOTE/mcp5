@@ -1,64 +1,55 @@
 use noise::{NoiseFn, Perlin, Seedable};
 
-pub struct Map {
-    pub width: u64,
-    pub height: u64,
-    pub map: Vec<f32>,
-}
-
-pub struct Config {
-    pub seed: u32,
-    pub redistribution: f64,
-    pub freq: f64,
-    pub octaves: usize,
-}
-
-const MAX_WIDTH: u64 = 1_000_000;
-
-pub fn map_cfg() -> Config {
-    Config {
+pub fn map_cfg() -> GenConfig {
+    GenConfig {
         seed: 0,
         redistribution: 1.0,
         freq: 20_000.0,
         octaves: 3,
+        max_width: 1_000_000,
+        origin: (500_000, 500_000),
     }
 }
 
-pub fn gen(base_x: u64, base_y: u64, width: u64, height: u64, cfg: Config) -> Vec<f32> {
-    let perlin = Perlin::new().set_seed(cfg.seed);
-    let redist = cfg.redistribution;
-    let freq = cfg.freq;
-    let octaves = cfg.octaves;
-
-    (0..width)
-        .map(|x| (0..height).map(move |y| (x, y)))
-        .flatten()
-        .map(|(x, y)| {
-            let x = base_x + x;
-            let y = base_y + y;
-
-            let nx = x as f64 / MAX_WIDTH as f64;
-            let ny = y as f64 / MAX_WIDTH as f64;
-
-            let value = (0..octaves).fold(0.0, |acc, n| {
-                let power = 2.0f64.powf(n as f64);
-                let modifier = 1.0 / power;
-                acc + modifier * perlin.get([nx * freq * power, ny * freq * power])
-            });
-            (((value.powf(redist) + 1.0) / 2.0) as f32).max(0.0)
-        })
-        .collect()
+pub struct GenConfig {
+    pub seed: u32,
+    pub redistribution: f64,
+    pub freq: f64,
+    pub octaves: usize,
+    pub max_width: i64,
+    pub origin: (i64, i64),
 }
 
-pub fn map_gen() -> Map {
-    const MAP_WIDTH: u64 = 100;
-    const MAP_HEIGHT: u64 = 100;
+pub struct ProcGen {
+    perlin: Perlin,
+    cfg: GenConfig,
+}
 
-    let map = gen(0, 0, MAP_WIDTH, MAP_HEIGHT, map_cfg());
+impl ProcGen {
+    pub fn new(cfg: GenConfig) -> Self {
+        Self {
+            perlin: Perlin::new().set_seed(cfg.seed),
+            cfg: cfg,
+        }
+    }
 
-    Map {
-        width: MAP_WIDTH,
-        height: MAP_HEIGHT,
-        map,
+    pub fn gen(&self, x: i64, y: i64) -> f32 {
+        let x = x + self.cfg.origin.0;
+        let y = y + self.cfg.origin.1;
+
+        let redist = self.cfg.redistribution;
+        let freq = self.cfg.freq;
+        let octaves = self.cfg.octaves;
+
+        let nx = x as f64 / self.cfg.max_width as f64;
+        let ny = y as f64 / self.cfg.max_width as f64;
+
+        let value = (0..octaves).fold(0.0, |acc, n| {
+            let power = 2.0f64.powf(n as f64);
+            let modifier = 1.0 / power;
+            acc + modifier * self.perlin.get([nx * freq * power, ny * freq * power])
+        });
+
+        (((value.powf(redist) + 1.0) / 2.0) as f32).max(0.0)
     }
 }

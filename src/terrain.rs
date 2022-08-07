@@ -1,17 +1,90 @@
-use legion::{systems::CommandBuffer, *};
+use legion::{systems::CommandBuffer, world::SubWorld, *};
 use macroquad::prelude::*;
 use rapier3d::prelude::*;
+use std::collections::HashSet;
 
 use crate::{
     components::{Position, Size},
     draw::Sprite,
-    map::map_gen,
+    map::{map_cfg, ProcGen},
+    physics::RemoveBuffer,
 };
 
 const SIZE: f32 = 8.0;
 
 #[derive(Debug)]
 pub struct Terrain;
+
+#[derive(Debug)]
+pub struct Loader {
+    last_time: f64,
+    last_pos: Vec3,
+    range: Option<MapRange>,
+}
+
+impl Loader {
+    pub fn new() -> Self {
+        Self {
+            last_time: get_time(),
+            last_pos: vec3(0.0, 0.0, 0.0),
+            range: None,
+        }
+    }
+}
+
+type Add = Vec<(i64, i64)>;
+type Remove = HashSet<(i64, i64)>;
+
+#[derive(Debug)]
+pub struct MapRange {
+    pub base_x: i64,
+    pub base_y: i64,
+    pub width: i64,
+    pub height: i64,
+}
+
+impl MapRange {
+    fn new(base_x: i64, base_y: i64, width: i64, height: i64) -> Self {
+        Self {
+            base_x,
+            base_y,
+            width,
+            height,
+        }
+    }
+
+    fn contains(&self, pos: (i64, i64)) -> bool {
+        pos.0 >= self.base_x
+            && pos.0 < self.base_x + self.width
+            && pos.1 >= self.base_y
+            && pos.1 < self.base_y + self.height
+    }
+
+    fn diff(&self, old: &MapRange) -> (Add, Remove) {
+        let add = (0..self.width)
+            .map(|x| (0..self.height).map(move |y| (x + self.base_x, y + self.base_y)))
+            .flatten()
+            .filter(|p| !old.contains(*p))
+            .collect();
+        let remove = (0..old.width)
+            .map(|x| (0..old.height).map(move |y| (x + old.base_x, y + old.base_y)))
+            .flatten()
+            .filter(|p| !self.contains(*p))
+            .collect();
+
+        (add, remove)
+    }
+
+    fn to_add(&self) -> (Add, Remove) {
+        (
+            (0..self.width)
+                .map(|x| (0..self.height).map(move |y| (x + self.base_x, y + self.base_y)))
+                .flatten()
+                .collect(),
+            HashSet::new(),
+        )
+    }
+}
 
 fn color(level: f32) -> Color {
     if level <= 0.1 {
@@ -65,24 +138,69 @@ pub fn create_terrain(
 
 #[system]
 pub fn load_terrain(
+    world: &mut SubWorld,
+    loaders: &mut Query<(&Position, &mut Loader)>,
+    terrain: &mut Query<(Entity, &Position, &RigidBodyHandle, &Terrain)>,
     #[resource] rigid_body_set: &mut RigidBodySet,
     #[resource] collider_set: &mut ColliderSet,
+    #[resource] remove_buffer: &mut RemoveBuffer,
     command_buffer: &mut CommandBuffer,
 ) {
-    let map = map_gen();
+    let (pos, loader) = match loaders.iter_mut(world).next() {
+        Some((pos, loader)) => (*pos, loader),
+        None => return,
+    };
 
-    map.map.iter().enumerate().for_each(|(i, level)| {
-        let x = i as u64 % map.width;
-        let y = i as u64 / map.width;
+    let now = get_time();
+    if now - loader.last_time <= 0.03 {
+        return;
+    }
+    if pos.distance(loader.last_pos) <= 3.0 {
+        return;
+    }
 
-        let x = x as f32 * SIZE;
-        let y = y as f32 * SIZE;
+    loader.last_time = now;
+    loader.last_pos = *pos;
+
+    let w = screen_width() * 1.2;
+    let h = screen_height() * 1.2;
+    let x = pos.x - w * 0.5;
+    let y = pos.y - h * 0.5;
+
+    let tx = (x / SIZE) as i64;
+    let ty = (y / SIZE) as i64;
+    let tw = (w / SIZE) as i64;
+    let th = (h / SIZE) as i64;
+
+    let range = MapRange::new(tx, ty, tw, th);
+
+    let (add, remove) = match &loader.range {
+        Some(old) => range.diff(&old),
+        None => range.to_add(),
+    };
+
+    loader.range = Some(range);
+
+    for (entity, terrain_pos, rigid_body_handle, _) in terrain.iter(world) {
+        let x = (terrain_pos.x / SIZE) as i64;
+        let y = (terrain_pos.y / SIZE) as i64;
+
+        if remove.contains(&(x, y)) {
+            command_buffer.remove(*entity);
+            remove_buffer.push(*rigid_body_handle);
+        }
+    }
+
+    let gen = ProcGen::new(map_cfg());
+
+    for (x, y) in add {
+        let level = gen.gen(x, y);
 
         command_buffer.push(create_terrain(
             rigid_body_set,
             collider_set,
-            Position::new(x, y, 0.0),
-            *level,
+            Position::new(x as f32 * SIZE, y as f32 * SIZE, 0.0),
+            level,
         ));
-    });
+    }
 }

@@ -31,12 +31,12 @@ async fn main() {
     physics::setup_resources(&mut resources);
 
     let mut init = Schedule::builder()
-        .add_system(terrain::load_terrain_system())
         .add_system(player::load_player_system())
         .add_system(block::load_blocks_system())
         .build();
 
     let mut schedule = Schedule::builder()
+        .add_system(terrain::load_terrain_system())
         .add_system(physics::update_physics_system())
         .add_system(control::control_system())
         .add_system(camera::update_camera_system())
