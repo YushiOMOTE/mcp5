@@ -1,71 +1,12 @@
 use legion::{systems::CommandBuffer, *};
 use macroquad::prelude::*;
-use noise::{NoiseFn, Perlin, Seedable};
 use rapier3d::prelude::*;
 
 use crate::{
     components::{Position, Size},
     draw::Sprite,
+    map::map_gen,
 };
-
-pub struct Map {
-    pub width: u64,
-    pub height: u64,
-    pub map: Vec<f32>,
-}
-
-pub struct Config {
-    pub seed: u32,
-    pub redistribution: f64,
-    pub freq: f64,
-    pub octaves: usize,
-}
-
-pub fn proc_gen(width: u64, height: u64, cfg: Config) -> Vec<f32> {
-    let perlin = Perlin::new().set_seed(cfg.seed);
-    let redist = cfg.redistribution;
-    let freq = cfg.freq;
-    let octaves = cfg.octaves;
-
-    (0..width * height)
-        .map(|i| {
-            let x = i % width;
-            let y = i / width;
-
-            let nx = x as f64 / width as f64;
-            let ny = y as f64 / width as f64;
-
-            let value = (0..octaves).fold(0.0, |acc, n| {
-                let power = 2.0f64.powf(n as f64);
-                let modifier = 1.0 / power;
-                acc + modifier * perlin.get([nx * freq * power, ny * freq * power])
-            });
-            (((value.powf(redist) + 1.0) / 2.0) as f32).max(0.0)
-        })
-        .collect()
-}
-
-pub fn map_gen() -> Map {
-    const MAP_WIDTH: u64 = 100;
-    const MAP_HEIGHT: u64 = 100;
-
-    let map = proc_gen(
-        MAP_WIDTH,
-        MAP_HEIGHT,
-        Config {
-            seed: 0,
-            redistribution: 1.0,
-            freq: 2.0,
-            octaves: 3,
-        },
-    );
-
-    Map {
-        width: MAP_WIDTH,
-        height: MAP_HEIGHT,
-        map,
-    }
-}
 
 const SIZE: f32 = 8.0;
 

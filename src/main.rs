@@ -9,6 +9,7 @@ mod components;
 mod control;
 mod draw;
 mod keymap;
+mod map;
 mod physics;
 mod player;
 #[allow(unused)]
