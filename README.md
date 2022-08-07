@@ -1,7 +1,8 @@
 # Minimum Crappy Playable 5
 
-Experimentally making cross-platform game using
-[macroquad](https://github.com/not-fl3/macroquad) + [legion](https://github.com/amethyst/legion)
+* Experimental cross-platform game powered by 
+[macroquad](https://github.com/not-fl3/macroquad) + [legion](https://github.com/amethyst/legion) + [rapier](https://github.com/dimforge/rapier)
+* Provides huge map with procedural generation
 
 ## Demo
 
@@ -9,9 +10,8 @@ https://yushiomote.github.io/mcp5/
 
 Keys:
 
-- Arrow keys - Move
-- Z - Quick run
-- X - Hold facing blocks
-- C - Attack
+- W/A/S/D - Move
+- K - Quick run
+- J - Jump
 
 ![](./assets/demo.png)
