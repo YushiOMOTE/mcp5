@@ -5,108 +5,97 @@ use crate::{
     control::Control,
     draw::Sprite,
     grid::GRID_SIZE,
-    hit::{Hit, Hitbox, Life},
-    physics::Velocity,
+    physics::{Body, Velocity},
     temporary::Temporary,
 };
-use legion::Entity;
+use legion::{systems::CommandBuffer, *};
 use macroquad::prelude::*;
+use rapier3d::prelude::*;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Player;
 
-/// Represents a block held by players.
-/// `owner` stores the entity of the player who holds this block.
-#[derive(Clone, Copy, Debug)]
-pub struct PlayerPart {
-    owner: Option<Entity>,
-}
-
-impl PlayerPart {
-    pub fn new(owner: Entity) -> Self {
-        Self { owner: Some(owner) }
-    }
-
-    pub fn owner(&self) -> Option<Entity> {
-        self.owner
-    }
-
-    fn empty() -> Self {
-        Self { owner: None }
-    }
-}
-
 pub fn create_player(
+    rigid_body_set: &mut RigidBodySet,
+    collider_set: &mut ColliderSet,
     pos: Position,
 ) -> (
     Position,
     Direction,
     Player,
-    PlayerPart,
     Size,
     Sprite,
     Camera,
     Control,
-    Life,
-    Hitbox,
+    Body,
+    RigidBodyHandle,
+    ColliderHandle,
 ) {
+    let size = Size::new(GRID_SIZE, GRID_SIZE, GRID_SIZE);
+
+    let collider = ColliderBuilder::cuboid(size.x, size.y, size.z)
+        .mass(100.0)
+        .build();
+
+    let rigid_body = RigidBodyBuilder::dynamic()
+        .translation(vector![pos.x, pos.y, pos.z])
+        .enabled_rotations(false, false, true)
+        .can_sleep(false)
+        .build();
+    let rigid_body_handle = rigid_body_set.insert(rigid_body);
+
+    let collider_handle =
+        collider_set.insert_with_parent(collider, rigid_body_handle, rigid_body_set);
+
     (
         pos,
         Direction::Down,
         Player,
-        PlayerPart::empty(),
-        Size::new(GRID_SIZE, GRID_SIZE, GRID_SIZE),
+        size,
         Sprite::new(BLUE),
         Camera,
         Control,
-        Life::new(100, 100),
-        Hitbox::new(0, Rect::new(0.0, 0.0, GRID_SIZE, GRID_SIZE)),
+        Body,
+        rigid_body_handle,
+        collider_handle,
     )
 }
 
+#[allow(unused)]
 pub fn create_chaser(
+    rigid_body_set: &mut RigidBodySet,
+    collider_set: &mut ColliderSet,
     pos: Position,
-) -> (
-    Position,
-    Direction,
-    Player,
-    PlayerPart,
-    Size,
-    Sprite,
-    Chase,
-    Life,
-    Hitbox,
-) {
+) -> (Position, Direction, Player, Size, Sprite, Chase) {
     (
         pos,
         Direction::Down,
         Player,
-        PlayerPart::empty(),
         Size::new(GRID_SIZE, GRID_SIZE, GRID_SIZE),
         Sprite::new(YELLOW),
         Chase::new(),
-        Life::new(100, 100),
-        Hitbox::new(1, Rect::new(0.0, 0.0, GRID_SIZE, GRID_SIZE)),
     )
 }
 
-pub fn create_attack(
-    pos: Position,
-    dir: Direction,
-) -> (Position, Direction, Velocity, Size, Sprite, Temporary, Hit) {
-    const SPEED: f32 = 400.0;
-    (
-        pos,
-        dir,
-        match dir {
-            Direction::Up => Velocity::new(0.0, -1.0 * SPEED, 0.0),
-            Direction::Down => Velocity::new(0.0, SPEED, 0.0),
-            Direction::Right => Velocity::new(SPEED, 0.0, 0.0),
-            Direction::Left => Velocity::new(-1.0 * SPEED, 0.0, 0.0),
-        },
-        Size::new(GRID_SIZE, GRID_SIZE, GRID_SIZE),
-        Sprite::new(PURPLE),
-        Temporary::die_after(0.5),
-        Hit::new(0, -20, Rect::new(0.0, 0.0, GRID_SIZE, GRID_SIZE)),
-    )
+#[system]
+pub fn load_player(
+    #[resource] rigid_body_set: &mut RigidBodySet,
+    #[resource] collider_set: &mut ColliderSet,
+    command_buffer: &mut CommandBuffer,
+) {
+    command_buffer.push(create_player(
+        rigid_body_set,
+        collider_set,
+        Position::new(120.0, 120.0, -500.0),
+    ));
+    // command_buffer.push(create_chaser(
+    //     rigid_body_set,
+    //     collider_set,
+    //     Position::new(360.0, 360.0, 0.0),
+    // ));
+    // command_buffer.push(create_chaser(
+    //     rigid_body_set,
+    //     collider_set,
+    //     Position::new(560.0, 560.0, 0.0),
+    // ));
 }

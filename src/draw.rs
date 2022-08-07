@@ -3,7 +3,7 @@ use crate::{
     grid::GRID_SIZE,
     terrain::Terrain,
 };
-use legion::{systems::Builder, world::SubWorld, *};
+use legion::{world::SubWorld, *};
 use macroquad::prelude::*;
 
 #[derive(Clone, Debug)]
@@ -26,7 +26,7 @@ impl Sprite {
 #[read_component(Size)]
 #[read_component(Sprite)]
 #[read_component(Terrain)]
-fn draw_sprites(world: &mut SubWorld) {
+pub fn draw(world: &mut SubWorld) {
     let mut items = <(&Position, &Size, &Sprite)>::query();
     for (pos, size, sprite) in items.iter(world) {
         draw_cube(
@@ -36,8 +36,4 @@ fn draw_sprites(world: &mut SubWorld) {
             sprite.color(),
         );
     }
-}
-
-pub fn setup_systems(builder: &mut Builder) -> &mut Builder {
-    builder.add_system(draw_sprites_system())
 }
