@@ -19,6 +19,7 @@ mod terrain;
 fn window_conf() -> Conf {
     Conf {
         window_title: "mcp5".into(),
+        window_resizable: false,
         ..Default::default()
     }
 }

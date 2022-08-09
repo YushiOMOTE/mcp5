@@ -162,8 +162,8 @@ pub fn load_terrain(
     loader.last_time = now;
     loader.last_pos = *pos;
 
-    let w = screen_width() * 1.2;
-    let h = screen_height() * 1.2;
+    let w = screen_width() * 0.5;
+    let h = screen_height() * 0.5;
     let x = pos.x - w * 0.5;
     let y = pos.y - h * 0.5;
 
