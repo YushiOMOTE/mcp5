@@ -8,15 +8,30 @@ use macroquad::prelude::*;
 #[derive(Clone, Debug)]
 pub struct Sprite {
     color: Color,
+    texture: Option<Texture2D>,
 }
 
 impl Sprite {
     pub fn new(color: Color) -> Self {
-        Self { color }
+        Self {
+            color,
+            texture: None,
+        }
+    }
+
+    pub fn with_texture(color: Color, texture: Texture2D) -> Self {
+        Self {
+            color,
+            texture: Some(texture),
+        }
     }
 
     pub fn color(&self) -> Color {
         self.color
+    }
+
+    pub fn texture(&self) -> Option<Texture2D> {
+        self.texture
     }
 }
 
@@ -31,7 +46,7 @@ pub fn draw(world: &mut SubWorld) {
         draw_cube(
             vec3(pos.x, pos.y, pos.z),
             vec3(size.x, size.y, size.z),
-            None,
+            sprite.texture(),
             sprite.color(),
         );
     }

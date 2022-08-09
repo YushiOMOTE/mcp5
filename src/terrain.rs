@@ -86,8 +86,29 @@ impl MapRange {
     }
 }
 
-fn color(level: f32) -> Color {
-    if level <= 0.1 {
+pub fn create_texture(color: Color) -> Texture2D {
+    let bytes: Vec<u8> = (0..16)
+        .map(|x| (0..16).map(move |y| (x, y)))
+        .flatten()
+        .map(|(x, y)| {
+            let rgba: [u8; 4] = color.into();
+            let rgba = if x == 0 || y == 0 || x == 15 || y == 15 {
+                [rgba[0] / 5 * 4, rgba[1] / 5 * 4, rgba[2] / 5 * 4, rgba[3]]
+            } else {
+                rgba
+            };
+            rgba.into_iter()
+        })
+        .flatten()
+        .collect();
+
+    let texture = Texture2D::from_rgba8(16, 16, &bytes);
+
+    texture
+}
+
+fn sprite(level: f32) -> Sprite {
+    let color = if level <= 0.1 {
         Color::new(0.0, level * 2.0, 0.5 + level * 2.0, 1.0)
     } else if level > 0.1 && level <= 0.3 {
         Color::new(1.0 - level * 0.1, 1.0 - level, 1.0 - level, 1.0)
@@ -95,7 +116,11 @@ fn color(level: f32) -> Color {
         Color::new(0.1, 1.0 - level, 0.1, 1.0)
     } else {
         Color::new(0.5 - (level - 0.8), 0.3 - (level - 0.8), 0.0, 1.0)
-    }
+    };
+
+    let texture = create_texture(color);
+
+    Sprite::with_texture(WHITE, texture)
 }
 
 pub fn create_terrain(
@@ -129,7 +154,7 @@ pub fn create_terrain(
     (
         pos,
         size,
-        Sprite::new(color(level)),
+        sprite(level),
         Terrain,
         rigid_body_handle,
         collider_handle,
