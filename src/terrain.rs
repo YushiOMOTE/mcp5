@@ -11,7 +11,8 @@ use crate::{
     textures::Textures,
 };
 
-const SIZE: f32 = 8.0;
+const WIDTH: f32 = 8.0;
+const HEIGHT: f32 = 8.0;
 
 #[derive(Debug)]
 pub struct Terrain;
@@ -132,8 +133,8 @@ pub fn create_terrain(
     RigidBodyHandle,
     ColliderHandle,
 ) {
-    let half_heigh = (level * 10.0).floor() * SIZE + SIZE;
-    let size = Size::new(SIZE, SIZE, half_heigh * 2.0);
+    let half_heigh = (level * 10.0).floor() * HEIGHT + HEIGHT;
+    let size = Size::new(WIDTH, WIDTH, half_heigh * 2.0);
 
     let collider = ColliderBuilder::cuboid(size.x * 0.5, size.y * 0.5, size.z * 0.5)
         .friction(0.0)
@@ -158,12 +159,14 @@ pub fn create_terrain(
 }
 
 fn create_texture(color: Color) -> Texture2D {
-    let bytes: Vec<u8> = (0..16)
-        .map(|x| (0..16).map(move |y| (x, y)))
+    let width = 64;
+    let height = 64;
+    let bytes: Vec<u8> = (0..width)
+        .map(|x| (0..height).map(move |y| (x, y)))
         .flatten()
         .map(|(x, y)| {
             let rgba: [u8; 4] = color.into();
-            let rgba = if x == 0 || y == 0 || x == 15 || y == 15 {
+            let rgba = if x == 0 || y == 0 || x == 63 || y == 63 {
                 [rgba[0] / 5 * 4, rgba[1] / 5 * 4, rgba[2] / 5 * 4, rgba[3]]
             } else {
                 [255, 255, 255, 255]
@@ -173,7 +176,7 @@ fn create_texture(color: Color) -> Texture2D {
         .flatten()
         .collect();
 
-    Texture2D::from_rgba8(16, 16, &bytes)
+    Texture2D::from_rgba8(width, height, &bytes)
 }
 
 #[system]
@@ -213,13 +216,13 @@ pub fn load_terrain(
 
     let w = screen_width() * 0.5;
     let h = screen_height() * 0.5;
-    let x = pos.x - w * 0.5;
-    let y = pos.y - h * 0.5;
+    let x = pos.x - w * 0.5 + 80.0;
+    let y = pos.y - h * 0.5 + 80.0;
 
-    let tx = (x / SIZE) as i64;
-    let ty = (y / SIZE) as i64;
-    let tw = (w / SIZE) as i64;
-    let th = (h / SIZE) as i64;
+    let tx = (x / WIDTH) as i64;
+    let ty = (y / WIDTH) as i64;
+    let tw = (w / WIDTH) as i64;
+    let th = (h / WIDTH) as i64;
 
     let range = MapRange::new(tx, ty, tw, th);
 
@@ -231,8 +234,8 @@ pub fn load_terrain(
     loader.range = Some(range);
 
     for (entity, terrain_pos, rigid_body_handle, _) in terrain.iter(world) {
-        let x = (terrain_pos.x / SIZE) as i64;
-        let y = (terrain_pos.y / SIZE) as i64;
+        let x = (terrain_pos.x / WIDTH) as i64;
+        let y = (terrain_pos.y / WIDTH) as i64;
 
         if remove.contains(&(x, y)) {
             command_buffer.remove(*entity);
@@ -248,7 +251,7 @@ pub fn load_terrain(
         command_buffer.push(create_terrain(
             rigid_body_set,
             collider_set,
-            Position::new(x as f32 * SIZE, y as f32 * SIZE, 0.0),
+            Position::new(x as f32 * WIDTH, y as f32 * WIDTH, 0.0),
             level,
             textures,
         ));
