@@ -15,6 +15,7 @@ mod player;
 #[allow(unused)]
 mod temporary;
 mod terrain;
+mod textures;
 
 fn window_conf() -> Conf {
     Conf {
@@ -30,10 +31,12 @@ async fn main() {
     let mut resources = Resources::default();
 
     physics::setup_resources(&mut resources);
+    textures::setup_resources(&mut resources);
 
     let mut init = Schedule::builder()
         .add_system(player::load_player_system())
         .add_system(block::load_blocks_system())
+        .add_system(terrain::load_textures_system())
         .build();
 
     let mut schedule = Schedule::builder()

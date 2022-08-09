@@ -8,6 +8,7 @@ use crate::{
     draw::Sprite,
     map::{map_cfg, ProcGen},
     physics::RemoveBuffer,
+    textures::Textures,
 };
 
 const SIZE: f32 = 8.0;
@@ -86,29 +87,8 @@ impl MapRange {
     }
 }
 
-pub fn create_texture(color: Color) -> Texture2D {
-    let bytes: Vec<u8> = (0..16)
-        .map(|x| (0..16).map(move |y| (x, y)))
-        .flatten()
-        .map(|(x, y)| {
-            let rgba: [u8; 4] = color.into();
-            let rgba = if x == 0 || y == 0 || x == 15 || y == 15 {
-                [rgba[0] / 5 * 4, rgba[1] / 5 * 4, rgba[2] / 5 * 4, rgba[3]]
-            } else {
-                rgba
-            };
-            rgba.into_iter()
-        })
-        .flatten()
-        .collect();
-
-    let texture = Texture2D::from_rgba8(16, 16, &bytes);
-
-    texture
-}
-
-fn sprite(level: f32) -> Sprite {
-    let color = if level <= 0.1 {
+fn color(level: f32) -> Color {
+    if level <= 0.1 {
         Color::new(0.0, level * 2.0, 0.5 + level * 2.0, 1.0)
     } else if level > 0.1 && level <= 0.3 {
         Color::new(1.0 - level * 0.1, 1.0 - level, 1.0 - level, 1.0)
@@ -116,11 +96,26 @@ fn sprite(level: f32) -> Sprite {
         Color::new(0.1, 1.0 - level, 0.1, 1.0)
     } else {
         Color::new(0.5 - (level - 0.8), 0.3 - (level - 0.8), 0.0, 1.0)
-    };
+    }
+}
 
-    let texture = create_texture(color);
+fn texture(level: f32, textures: &Textures) -> Texture2D {
+    if level <= 0.1 {
+        textures.get(0).unwrap()
+    } else if level > 0.1 && level <= 0.3 {
+        textures.get(1).unwrap()
+    } else if level > 0.3 && level <= 0.8 {
+        textures.get(2).unwrap()
+    } else {
+        textures.get(3).unwrap()
+    }
+}
 
-    Sprite::with_texture(WHITE, texture)
+fn sprite(level: f32, textures: &Textures) -> Sprite {
+    let color = color(level);
+    let texture = texture(level, textures);
+
+    Sprite::with_texture(color, texture)
 }
 
 pub fn create_terrain(
@@ -128,6 +123,7 @@ pub fn create_terrain(
     collider_set: &mut ColliderSet,
     pos: Position,
     level: f32,
+    textures: &Textures,
 ) -> (
     Position,
     Size,
@@ -154,11 +150,38 @@ pub fn create_terrain(
     (
         pos,
         size,
-        sprite(level),
+        sprite(level, textures),
         Terrain,
         rigid_body_handle,
         collider_handle,
     )
+}
+
+fn create_texture(color: Color) -> Texture2D {
+    let bytes: Vec<u8> = (0..16)
+        .map(|x| (0..16).map(move |y| (x, y)))
+        .flatten()
+        .map(|(x, y)| {
+            let rgba: [u8; 4] = color.into();
+            let rgba = if x == 0 || y == 0 || x == 15 || y == 15 {
+                [rgba[0] / 5 * 4, rgba[1] / 5 * 4, rgba[2] / 5 * 4, rgba[3]]
+            } else {
+                [255, 255, 255, 255]
+            };
+            rgba.into_iter()
+        })
+        .flatten()
+        .collect();
+
+    Texture2D::from_rgba8(16, 16, &bytes)
+}
+
+#[system]
+pub fn load_textures(#[resource] textures: &mut Textures) {
+    textures.add(0, create_texture(color(0.0)));
+    textures.add(1, create_texture(color(0.11)));
+    textures.add(2, create_texture(color(0.31)));
+    textures.add(3, create_texture(color(0.81)));
 }
 
 #[system]
@@ -169,6 +192,7 @@ pub fn load_terrain(
     #[resource] rigid_body_set: &mut RigidBodySet,
     #[resource] collider_set: &mut ColliderSet,
     #[resource] remove_buffer: &mut RemoveBuffer,
+    #[resource] textures: &Textures,
     command_buffer: &mut CommandBuffer,
 ) {
     let (pos, loader) = match loaders.iter_mut(world).next() {
@@ -226,6 +250,7 @@ pub fn load_terrain(
             collider_set,
             Position::new(x as f32 * SIZE, y as f32 * SIZE, 0.0),
             level,
+            textures,
         ));
     }
 }
