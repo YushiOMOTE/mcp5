@@ -33,6 +33,7 @@ pub fn create_player(
     let collider = ColliderBuilder::cuboid(size.x * 0.5, size.y * 0.5, size.z * 0.5)
         .mass(100.0)
         .friction(0.0)
+        .friction_combine_rule(CoefficientCombineRule::Min)
         .build();
 
     let rigid_body = RigidBodyBuilder::dynamic()

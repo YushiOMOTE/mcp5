@@ -25,7 +25,7 @@ pub fn create_block(
 
     let collider = ColliderBuilder::cuboid(size.x * 0.5, size.y * 0.5, size.z * 0.5)
         .mass(200.0)
-        .friction(2.0)
+        .friction(5.0)
         .build();
 
     let rigid_body = RigidBodyBuilder::dynamic()
@@ -63,7 +63,7 @@ pub fn create_fixed_block(
 
     let collider = ColliderBuilder::cuboid(size.x * 0.5, size.y * 0.5, size.z * 0.5)
         .mass(5000.0)
-        .friction(0.0)
+        .friction(5.0)
         .build();
 
     let rigid_body = RigidBodyBuilder::dynamic()
