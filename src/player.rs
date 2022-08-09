@@ -51,7 +51,7 @@ pub fn create_player(
         pos,
         Player,
         size,
-        Sprite::new(RED),
+        Sprite::plain(RED),
         Camera,
         Control,
         Loader::new(),
@@ -70,7 +70,7 @@ pub fn create_chaser(
         pos,
         Player,
         Size::new(8.0, 8.0, 8.0),
-        Sprite::new(YELLOW),
+        Sprite::plain(YELLOW),
         Chase::new(),
     )
 }

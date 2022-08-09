@@ -12,17 +12,17 @@ pub struct Sprite {
 }
 
 impl Sprite {
-    pub fn new(color: Color) -> Self {
+    pub fn new(color: Color, texture: Option<Texture2D>) -> Self {
         Self {
             color,
-            texture: None,
+            texture: texture,
         }
     }
 
-    pub fn with_texture(color: Color, texture: Texture2D) -> Self {
+    pub fn plain(color: Color) -> Self {
         Self {
             color,
-            texture: Some(texture),
+            texture: None,
         }
     }
 

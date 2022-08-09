@@ -41,7 +41,7 @@ pub fn create_block(
         pos,
         Block,
         Size::new(8.0, 8.0, 8.0),
-        Sprite::new(Color::new(0.4, 0.4, 0.4, 1.0)),
+        Sprite::plain(Color::new(0.4, 0.4, 0.4, 1.0)),
         rigid_body_handle,
         collider_handle,
     )
@@ -80,7 +80,7 @@ pub fn create_fixed_block(
         pos,
         Block,
         Size::new(8.0, 8.0, 8.0),
-        Sprite::new(Color::new(0.2, 0.2, 0.2, 1.0)),
+        Sprite::plain(Color::new(0.2, 0.2, 0.2, 1.0)),
         rigid_body_handle,
         collider_handle,
     )

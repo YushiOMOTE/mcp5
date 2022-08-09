@@ -116,7 +116,7 @@ fn sprite(level: f32, textures: &Textures) -> Sprite {
     let color = color(level);
     let texture = texture(level, textures);
 
-    Sprite::with_texture(color, texture)
+    Sprite::new(color, Some(texture))
 }
 
 pub fn create_terrain(
