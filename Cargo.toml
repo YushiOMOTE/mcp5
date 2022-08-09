@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 macroquad = "0.3"
-legion = { version = "0.4", default-features = false, features = ["wasm-bindgen", "codegen", "stdweb", "extended-tuple-impls"] }
+legion = { version = "0.4", default-features = false, features = ["wasm-bindgen", "codegen", "extended-tuple-impls"] }
 derive_deref = "1.1.1"
 noise = "0.7.0"
-rapier3d = { version = "0.14.0", features = ["wasm-bindgen"] }
+rapier3d = "0.14.0"
 nalgebra = { version = "0.31.1", features = ["convert-glam014"] }
