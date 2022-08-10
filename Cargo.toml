@@ -6,9 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-macroquad = "0.3"
-legion = { version = "0.4", default-features = false, features = ["wasm-bindgen", "codegen", "extended-tuple-impls"] }
+# macroquad = "0.3"
+# legion = { version = "0.4", default-features = false, features = ["wasm-bindgen", "codegen", "extended-tuple-impls"] }
 derive_deref = "1.1.1"
 noise = "0.7.0"
 rapier3d = "0.14.0"
 nalgebra = { version = "0.31.1", features = ["convert-glam014"] }
+bevy = "0.8.0"
+bevy_rapier3d = "0.16.0"

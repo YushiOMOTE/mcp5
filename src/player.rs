@@ -1,89 +1,99 @@
-use crate::{
-    ai::chase::Chase,
-    camera::Camera,
-    components::{Position, Size},
-    control::Control,
-    draw::Sprite,
-    terrain::Loader,
+use crate::terrain::Loader;
+use bevy::{
+    input::{keyboard::KeyCode, Input},
+    prelude::*,
 };
-use legion::{systems::CommandBuffer, *};
-use macroquad::prelude::*;
-use rapier3d::prelude::*;
+use bevy_rapier3d::prelude::*;
+use nalgebra::Vector3;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Component)]
 pub struct Player;
 
 pub fn create_player(
-    rigid_body_set: &mut RigidBodySet,
-    collider_set: &mut ColliderSet,
-    pos: Position,
-) -> (
-    Position,
-    Player,
-    Size,
-    Sprite,
-    Camera,
-    Control,
-    Loader,
-    RigidBodyHandle,
-    ColliderHandle,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    transform: Transform,
 ) {
-    let size = Size::new(8.0, 8.0, 16.0);
-
-    let collider = ColliderBuilder::cuboid(size.x * 0.5, size.y * 0.5, size.z * 0.5)
-        .mass(100.0)
-        .friction(0.0)
-        .friction_combine_rule(CoefficientCombineRule::Min)
-        .build();
-
-    let rigid_body = RigidBodyBuilder::dynamic()
-        .translation(vector![pos.x, pos.y, pos.z])
-        .enabled_rotations(false, false, true)
-        .can_sleep(false)
-        .gravity_scale(20.0)
-        .build();
-    let rigid_body_handle = rigid_body_set.insert(rigid_body);
-
-    let collider_handle =
-        collider_set.insert_with_parent(collider, rigid_body_handle, rigid_body_set);
-
-    (
-        pos,
-        Player,
-        size,
-        Sprite::plain(RED),
-        Camera,
-        Control,
-        Loader::new(),
-        rigid_body_handle,
-        collider_handle,
-    )
+    commands
+        .spawn()
+        .insert(Player)
+        .insert(Loader::new())
+        .insert(RigidBody::Dynamic)
+        .insert(ExternalImpulse::default())
+        .insert(LockedAxes::ROTATION_LOCKED)
+        .insert(Friction {
+            coefficient: 0.0,
+            combine_rule: CoefficientCombineRule::Min,
+        })
+        .insert(Collider::cuboid(0.4, 0.4, 0.4))
+        .insert(GravityScale(3.0))
+        .insert_bundle(PbrBundle {
+            mesh: meshes.add(shape::Box::new(0.8, 0.8, 0.8).into()),
+            material: materials.add(Color::RED.into()),
+            transform,
+            ..default()
+        });
 }
 
-#[allow(unused)]
-pub fn create_chaser(
-    rigid_body_set: &mut RigidBodySet,
-    collider_set: &mut ColliderSet,
-    pos: Position,
-) -> (Position, Player, Size, Sprite, Chase) {
-    (
-        pos,
-        Player,
-        Size::new(8.0, 8.0, 8.0),
-        Sprite::plain(YELLOW),
-        Chase::new(),
-    )
+pub fn create_camera(commands: &mut Commands) {
+    commands.spawn_bundle(Camera3dBundle {
+        transform: Transform::from_xyz(-3.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..Default::default()
+    });
 }
 
-#[system]
-pub fn load_player(
-    #[resource] rigid_body_set: &mut RigidBodySet,
-    #[resource] collider_set: &mut ColliderSet,
-    command_buffer: &mut CommandBuffer,
+pub fn update_camera_system(
+    players: Query<(&Player, &Transform)>,
+    mut cameras: Query<(&Camera, &mut Transform), Without<Player>>,
 ) {
-    command_buffer.push(create_player(
-        rigid_body_set,
-        collider_set,
-        Position::new(120.0, 120.0, 200.0),
-    ));
+    for (_, player_pos) in &players {
+        for (_, mut camera_pos) in &mut cameras {
+            *camera_pos =
+                Transform::from_translation(player_pos.translation + Vec3::new(4.0, 20.0, 8.0))
+                    .looking_at(player_pos.translation, Vec3::Y);
+        }
+    }
+}
+
+pub fn input_control_system(
+    mut query: Query<(
+        &mut Transform,
+        &mut ExternalImpulse,
+        &Player,
+        &RapierRigidBodyHandle,
+    )>,
+    context: Res<RapierContext>,
+    input: Res<Input<KeyCode>>,
+) {
+    for (mut transform, mut impulse, _, handle) in &mut query {
+        if input.pressed(KeyCode::W) {
+            transform.translation.z -= 0.2;
+        }
+        if input.pressed(KeyCode::A) {
+            transform.translation.x -= 0.2;
+        }
+        if input.pressed(KeyCode::S) {
+            transform.translation.z += 0.2;
+        }
+        if input.pressed(KeyCode::D) {
+            transform.translation.x += 0.2;
+        }
+
+        if input.pressed(KeyCode::J) {
+            let body = match context.bodies.get(handle.0) {
+                Some(b) => b,
+                None => continue,
+            };
+            if horizontally_stable(&body) {
+                impulse.impulse = Vec3::new(0.0, 5.0, 0.0);
+            }
+        }
+    }
+}
+
+fn horizontally_stable(body: &rapier3d::prelude::RigidBody) -> bool {
+    let e1 = body.gravitational_potential_energy(0.001, Vector3::new(0.0, -9.81, 0.0));
+    let e2 = body.gravitational_potential_energy(0.002, Vector3::new(0.0, -9.81, 0.0));
+    e1 == e2
 }
