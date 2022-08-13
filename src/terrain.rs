@@ -1,18 +1,7 @@
-// use legion::{systems::CommandBuffer, world::SubWorld, *};
-// use macroquad::prelude::*;
-// use rapier3d::prelude::*;
 use crate::map::{map_cfg, ProcGen};
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use std::collections::{HashSet, VecDeque};
-
-// use crate::{
-//     components::{Position, Size},
-//     draw::Sprite,
-//     map::{map_cfg, ProcGen},
-//     physics::RemoveBuffer,
-//     textures::Textures,
-// };
 
 const WIDTH: f32 = 0.8;
 const HEIGHT: f32 = 0.8;

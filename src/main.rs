@@ -1,9 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
-// #[allow(unused)]
-// mod ai;
-// mod block;
 mod light;
 mod map;
 mod player;
