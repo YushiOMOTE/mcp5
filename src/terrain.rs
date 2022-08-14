@@ -1,210 +1,167 @@
-use crate::map::{map_cfg, ProcGen};
-use bevy::prelude::*;
+use crate::chunk::Chunk;
+use bevy::{
+    prelude::*,
+    tasks::{AsyncComputeTaskPool, Task},
+};
 use bevy_rapier3d::prelude::*;
-use std::collections::{HashSet, VecDeque};
+use futures_lite::future;
+use std::collections::HashMap;
 
-const WIDTH: f32 = 0.8;
-const HEIGHT: f32 = 0.8;
-
-#[derive(Debug, Component)]
-pub struct Terrain;
+fn mask_y(mut vec: Vec3) -> Vec3 {
+    vec.y = 0.0;
+    vec
+}
 
 #[derive(Debug, Component)]
 pub struct Loader {
-    last_pos: Vec3,
-    range: Option<MapRange>,
+    load_radius: f32,
+    update_radius: f32,
+    last_pos: Option<Vec3>,
+    chunks: HashMap<Chunk, Entity>,
 }
 
 impl Loader {
     pub fn new() -> Self {
         Self {
-            last_pos: Vec3::new(0.0, 0.0, 0.0),
-            range: None,
-        }
-    }
-}
-
-type Add = VecDeque<(i64, i64)>;
-type Remove = HashSet<(i64, i64)>;
-
-#[derive(Debug)]
-pub struct MapRange {
-    pub base_x: i64,
-    pub base_y: i64,
-    pub width: i64,
-    pub height: i64,
-}
-
-impl MapRange {
-    fn new(base_x: i64, base_y: i64, width: i64, height: i64) -> Self {
-        Self {
-            base_x,
-            base_y,
-            width,
-            height,
+            load_radius: 96.0,
+            update_radius: 16.0,
+            last_pos: None,
+            chunks: HashMap::new(),
         }
     }
 
-    fn contains(&self, pos: (i64, i64)) -> bool {
-        pos.0 >= self.base_x
-            && pos.0 < self.base_x + self.width
-            && pos.1 >= self.base_y
-            && pos.1 < self.base_y + self.height
+    pub fn try_update(&mut self, new_pos: Vec3) -> bool {
+        match self.last_pos.as_mut() {
+            Some(last_pos) => {
+                let needs_update = new_pos.distance(*last_pos) > self.update_radius;
+
+                if needs_update {
+                    *last_pos = new_pos;
+                }
+
+                needs_update
+            }
+            None => {
+                self.last_pos = Some(new_pos);
+                true
+            }
+        }
     }
 
-    fn diff(&self, old: &MapRange) -> (Add, Remove) {
-        let add = (0..self.width)
-            .map(|x| (0..self.height).map(move |y| (x + self.base_x, y + self.base_y)))
-            .flatten()
-            .filter(|p| !old.contains(*p))
-            .collect();
-        let remove = (0..old.width)
-            .map(|x| (0..old.height).map(move |y| (x + old.base_x, y + old.base_y)))
-            .flatten()
-            .filter(|p| !self.contains(*p))
-            .collect();
-
-        (add, remove)
-    }
-
-    fn to_add(&self) -> (Add, Remove) {
-        (
-            (0..self.width)
-                .map(|x| (0..self.height).map(move |y| (x + self.base_x, y + self.base_y)))
-                .flatten()
-                .collect(),
-            HashSet::new(),
-        )
+    fn range(&self) -> Option<Range> {
+        self.last_pos.map(|last_pos| {
+            Range::new(
+                mask_y(last_pos - self.load_radius),
+                mask_y(last_pos + self.load_radius),
+            )
+        })
     }
 }
 
-fn color(level: f32) -> Color {
-    if level <= 0.1 {
-        Color::rgba(0.0, level * 2.0, 0.5 + level * 2.0, 1.0)
-    } else if level > 0.1 && level <= 0.3 {
-        Color::rgba(1.0 - level * 0.1, 1.0 - level, 1.0 - level, 1.0)
-    } else if level > 0.3 && level <= 0.8 {
-        Color::rgba(0.1, 1.0 - level, 0.1, 1.0)
-    } else {
-        Color::rgba(0.5 - (level - 0.8), 0.3 - (level - 0.8), 0.0, 1.0)
+struct Range {
+    min: Vec3,
+    max: Vec3,
+}
+
+impl Range {
+    fn new(min: Vec3, max: Vec3) -> Self {
+        Self { min, max }
+    }
+
+    fn contains(&self, pos: Vec3) -> bool {
+        self.min.x <= pos.x
+            && pos.x <= self.max.x
+            && self.min.y <= pos.y
+            && pos.y <= self.max.y
+            && self.min.z <= pos.z
+            && pos.z <= self.max.z
     }
 }
 
-pub fn create_terrain(
-    commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
-    transform: Transform,
-    level: f32,
-) {
-    let half_heigh = (level * 10.0).floor() * HEIGHT + HEIGHT;
+#[derive(Component)]
+pub struct ComputeMesh(Task<Mesh>);
+
+pub fn create_terrain(commands: &mut Commands, chunk: Chunk) -> Entity {
+    let task_pool = AsyncComputeTaskPool::get();
 
     commands
         .spawn()
-        .insert(Terrain)
-        .insert(Collider::cuboid(WIDTH * 0.5, half_heigh, WIDTH * 0.5))
-        .insert_bundle(PbrBundle {
-            mesh: meshes.add(shape::Box::new(WIDTH, half_heigh * 2.0, WIDTH).into()),
-            material: materials.add(color(level).into()),
-            transform,
-            ..default()
-        });
+        .insert(chunk.clone())
+        .insert(ComputeMesh(task_pool.spawn(async move { chunk.generate_mesh() })))
+        .id()
 }
 
-#[derive(Default)]
-pub struct Pending {
-    pub add: VecDeque<(i64, i64)>,
-    pub remove: HashSet<(i64, i64)>,
+pub fn render_terrain_system(
+    mut terrains: Query<(Entity, &Chunk, &mut ComputeMesh)>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands,
+) {
+    for (entity, chunk, mut task) in &mut terrains {
+        if let Some(mesh) = future::block_on(future::poll_once(&mut task.0)) {
+            commands
+                .entity(entity)
+                .remove::<ComputeMesh>()
+                .insert(Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh).unwrap())
+                .insert_bundle(PbrBundle {
+                    mesh: meshes.add(mesh.clone()),
+                    material: materials.add(Color::GRAY.into()),
+                    transform: Transform::from_translation(chunk.position()),
+                    ..default()
+                });
+        }
+    }
 }
 
 pub fn request_terrain_system(
-    mut pending: ResMut<Pending>,
     mut loaders: Query<(&Transform, &mut Loader)>,
+    mut commands: Commands,
 ) {
+    // assume there's only one loader
     let (transform, mut loader) = match loaders.iter_mut().next() {
         Some((t, l)) => (*t, l),
         None => return,
     };
 
-    if transform.translation.distance(loader.last_pos) <= 3.0 {
+    let pos = mask_y(transform.translation);
+
+    if !loader.try_update(pos) {
+        // no updates required
         return;
     }
 
-    loader.last_pos = transform.translation;
-
-    let w = 100.0 * 0.5;
-    let h = 100.0 * 0.5;
-    let x = transform.translation.x - w * 0.5 - 2.0;
-    let z = transform.translation.z - h * 0.5 - 2.0;
-
-    let tx = (x / WIDTH) as i64;
-    let tz = (z / WIDTH) as i64;
-    let tw = (w / WIDTH) as i64;
-    let th = (h / WIDTH) as i64;
-
-    let range = MapRange::new(tx, tz, tw, th);
-
-    let (add, remove) = match &loader.range {
-        Some(old) => range.diff(&old),
-        None => range.to_add(),
+    let range = match loader.range() {
+        Some(l) => l,
+        None => return,
     };
 
-    println!(
-        "+{}({}),-{}({})",
-        add.len(),
-        pending.add.len(),
-        remove.len(),
-        pending.remove.len()
-    );
-
-    pending.add.retain(|v| !remove.contains(v));
-    pending.remove.retain(|v| !add.contains(v));
-    pending.add.extend(add);
-    pending.remove.extend(remove);
-
-    loader.range = Some(range);
-}
-
-pub fn load_terrain_system(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    terrain: Query<(Entity, &Transform, &Terrain)>,
-    mut pending: ResMut<Pending>,
-) {
-    let mut count = 0;
-
-    for (entity, terrain_transform, _) in &terrain {
-        let x = (terrain_transform.translation.x / WIDTH) as i64;
-        let z = (terrain_transform.translation.z / WIDTH) as i64;
-
-        if pending.remove.remove(&(x, z)) {
-            commands.entity(entity).despawn();
-            count += 1;
+    loader.chunks.retain(|chunk, entity| {
+        let in_range = range.contains(chunk.position());
+        if !in_range {
+            commands.entity(*entity).despawn();
         }
+        in_range
+    });
 
-        if count >= 50 {
-            return;
-        }
-    }
+    let chunk_min = Chunk::from_world_coord(range.min);
+    let chunk_max = Chunk::from_world_coord(range.max);
 
-    let gen = ProcGen::new(map_cfg());
-    let mut count = 0;
-    while let Some((x, z)) = pending.add.pop_front() {
-        let level = gen.gen(x, z);
+    for x in chunk_min.x..=chunk_max.x {
+        for y in chunk_min.y..=chunk_max.y {
+            for z in chunk_min.z..=chunk_max.z {
+                let chunk = Chunk::new(x, y, z);
 
-        create_terrain(
-            &mut commands,
-            &mut meshes,
-            &mut materials,
-            Transform::from_xyz(x as f32 * WIDTH, 0.0, z as f32 * WIDTH),
-            level,
-        );
+                if !range.contains(chunk.position()) {
+                    continue;
+                }
+                if loader.chunks.contains_key(&chunk) {
+                    continue;
+                }
 
-        count += 1;
+                let entity = create_terrain(&mut commands, chunk.clone());
 
-        if count >= 50 {
-            return;
+                loader.chunks.insert(chunk, entity);
+            }
         }
     }
 }

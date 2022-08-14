@@ -14,3 +14,5 @@ rapier3d = "0.14.0"
 nalgebra = { version = "0.31.1", features = ["convert-glam014"] }
 bevy = "0.8.0"
 bevy_rapier3d = "0.16.0"
+block-mesh = "0.2.0"
+futures-lite = "1.11.3"

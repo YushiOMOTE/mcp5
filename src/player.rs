@@ -28,6 +28,7 @@ pub fn create_player(
         })
         .insert(Collider::cuboid(0.4, 0.4, 0.4))
         .insert(GravityScale(3.0))
+        .insert(Ccd::enabled())
         .insert_bundle(PbrBundle {
             mesh: meshes.add(shape::Box::new(0.8, 0.8, 0.8).into()),
             material: materials.add(Color::RED.into()),
