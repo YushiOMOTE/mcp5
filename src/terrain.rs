@@ -97,7 +97,6 @@ pub struct ComputedChunkReceiver(Receiver<ComputedChunk>);
 #[derive(Debug, Clone)]
 pub struct ComputedChunkSender(Sender<ComputedChunk>);
 
-
 pub struct TerrainGenPlugin;
 
 impl Plugin for TerrainGenPlugin {
@@ -134,6 +133,7 @@ pub fn render_terrain_system(
     for chunk in receiver.0.try_iter() {
         commands
             .entity(chunk.entity)
+            .insert(ColliderMassProperties::Density(100000.0))
             .insert(Collider::from_bevy_mesh(&chunk.mesh, &ComputedColliderShape::TriMesh).unwrap())
             .insert_bundle(PbrBundle {
                 mesh: meshes.add(chunk.mesh),
