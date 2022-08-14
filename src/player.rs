@@ -80,7 +80,12 @@ pub fn input_control_system(
         let pos_z = if input.pressed(KeyCode::S) { 1.0 } else { 0.0 };
         let neg_x = if input.pressed(KeyCode::A) { -1.0 } else { 0.0 };
         let pos_x = if input.pressed(KeyCode::D) { 1.0 } else { 0.0 };
-        let target_vel = Vec3::new(pos_x + neg_x, 0.0, pos_z + neg_z) * 10.0;
+        let speed = if input.pressed(KeyCode::K) {
+            20.0
+        } else {
+            10.0
+        };
+        let target_vel = Vec3::new(pos_x + neg_x, 0.0, pos_z + neg_z) * speed;
 
         force.force = (target_vel - velocity.linvel) * 1000.0;
         force.force.y = 0.0;

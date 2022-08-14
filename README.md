@@ -9,7 +9,8 @@ https://yushiomote.github.io/mcp5/
 
 Keys:
 
-- W/A/S/D - Move
+- W/A/S/D - Walk
 - J - Jump
+- K - Run
 
 ![](./assets/demo.png)
