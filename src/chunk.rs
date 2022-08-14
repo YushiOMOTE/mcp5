@@ -12,6 +12,9 @@ use block_mesh::{
 use crate::voxel::Voxel;
 
 // 32 x 64 x 32 voxels in a chunk
+#[cfg(target_arch = "wasm32")]
+const CHUNK_VOXELS: UVec3 = UVec3::new(8, 64, 8);
+#[cfg(not(target_arch = "wasm32"))]
 const CHUNK_VOXELS: UVec3 = UVec3::new(32, 64, 32);
 
 // block mesh parameters; +2 of chunk size as block-mesh requires 1-voxel boundary padding for each side

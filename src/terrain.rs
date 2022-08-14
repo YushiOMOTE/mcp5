@@ -20,8 +20,8 @@ pub struct Loader {
 impl Loader {
     pub fn new() -> Self {
         Self {
-            load_radius: 96.0,
-            update_radius: 16.0,
+            load_radius: Chunk::size().x * 3.0,
+            update_radius: Chunk::size().x * 0.5,
             last_pos: None,
             chunks: HashMap::new(),
         }
