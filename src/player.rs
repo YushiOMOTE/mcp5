@@ -23,12 +23,13 @@ pub fn create_player(
         .insert(ExternalImpulse::default())
         .insert(LockedAxes::ROTATION_LOCKED)
         .insert(Friction {
-            coefficient: 0.0,
+            coefficient: 10.0,
             combine_rule: CoefficientCombineRule::Min,
         })
         .insert(Collider::cuboid(0.4, 0.4, 0.4))
         .insert(GravityScale(3.0))
         .insert(Ccd::enabled())
+        .insert(Velocity::zero())
         .insert_bundle(PbrBundle {
             mesh: meshes.add(shape::Box::new(0.8, 0.8, 0.8).into()),
             material: materials.add(Color::RED.into()),
@@ -59,7 +60,7 @@ pub fn update_camera_system(
 
 pub fn input_control_system(
     mut query: Query<(
-        &mut Transform,
+        &mut Velocity,
         &mut ExternalImpulse,
         &Player,
         &RapierRigidBodyHandle,
@@ -67,18 +68,35 @@ pub fn input_control_system(
     context: Res<RapierContext>,
     input: Res<Input<KeyCode>>,
 ) {
-    for (mut transform, mut impulse, _, handle) in &mut query {
+    for (mut velocity, mut impulse, _, handle) in &mut query {
+        let step = 10.0;
+
         if input.pressed(KeyCode::W) {
-            transform.translation.z -= 0.2;
+            velocity.linvel.z = -1.0 * step;
         }
+        if input.just_released(KeyCode::W) {
+            velocity.linvel.z = 0.0;
+        }
+
         if input.pressed(KeyCode::A) {
-            transform.translation.x -= 0.2;
+            velocity.linvel.x = -1.0 * step;
         }
+        if input.just_released(KeyCode::A) {
+            velocity.linvel.x = 0.0;
+        }
+
         if input.pressed(KeyCode::S) {
-            transform.translation.z += 0.2;
+            velocity.linvel.z = step;
         }
+        if input.just_released(KeyCode::S) {
+            velocity.linvel.z = 0.0;
+        }
+
         if input.pressed(KeyCode::D) {
-            transform.translation.x += 0.2;
+            velocity.linvel.x = step;
+        }
+        if input.just_released(KeyCode::D) {
+            velocity.linvel.x = 0.0;
         }
 
         if input.pressed(KeyCode::J) {
@@ -86,14 +104,14 @@ pub fn input_control_system(
                 Some(b) => b,
                 None => continue,
             };
-            if horizontally_stable(&body) {
-                impulse.impulse = Vec3::new(0.0, 5.0, 0.0);
+            if vertically_stable(&body) {
+                impulse.impulse = Vec3::new(0.0, 10.0, 0.0);
             }
         }
     }
 }
 
-fn horizontally_stable(body: &rapier3d::prelude::RigidBody) -> bool {
+fn vertically_stable(body: &rapier3d::prelude::RigidBody) -> bool {
     let e1 = body.gravitational_potential_energy(0.001, Vector3::new(0.0, -9.81, 0.0));
     let e2 = body.gravitational_potential_energy(0.002, Vector3::new(0.0, -9.81, 0.0));
     e1 == e2
