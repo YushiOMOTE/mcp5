@@ -29,6 +29,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
+        .add_plugin(terrain::TerrainGenPlugin)
         // .add_plugin(RapierDebugRenderPlugin::default())
         .add_startup_system(setup)
         .add_system(player::input_control_system)

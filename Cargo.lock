@@ -1567,6 +1567,7 @@ dependencies = [
  "bevy",
  "bevy_rapier3d",
  "block-mesh",
+ "crossbeam-channel",
  "derive_deref",
  "futures-lite",
  "nalgebra",

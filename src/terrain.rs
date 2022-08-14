@@ -1,10 +1,7 @@
 use crate::chunk::Chunk;
-use bevy::{
-    prelude::*,
-    tasks::{AsyncComputeTaskPool, Task},
-};
+use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_rapier3d::prelude::*;
-use futures_lite::future;
+use crossbeam_channel::{bounded, Receiver, Sender};
 use std::collections::HashMap;
 
 fn mask_y(mut vec: Vec3) -> Vec3 {
@@ -78,44 +75,79 @@ impl Range {
     }
 }
 
-#[derive(Component)]
-pub struct ComputeMesh(Task<Mesh>);
+struct ComputedChunk {
+    entity: Entity,
+    chunk: Chunk,
+    mesh: Mesh,
+}
 
-pub fn create_terrain(commands: &mut Commands, chunk: Chunk) -> Entity {
+impl ComputedChunk {
+    fn new(entity: Entity, chunk: Chunk, mesh: Mesh) -> Self {
+        Self {
+            entity,
+            chunk,
+            mesh,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ComputedChunkReceiver(Receiver<ComputedChunk>);
+
+#[derive(Debug, Clone)]
+pub struct ComputedChunkSender(Sender<ComputedChunk>);
+
+
+pub struct TerrainGenPlugin;
+
+impl Plugin for TerrainGenPlugin {
+    fn build(&self, app: &mut App) {
+        let (tx, rx) = bounded(100);
+        app.insert_resource(ComputedChunkSender(tx));
+        app.insert_resource(ComputedChunkReceiver(rx));
+    }
+}
+
+pub fn create_terrain(commands: &mut Commands, sender: ComputedChunkSender, chunk: Chunk) -> Entity {
     let task_pool = AsyncComputeTaskPool::get();
 
-    commands
-        .spawn()
-        .insert(chunk.clone())
-        .insert(ComputeMesh(task_pool.spawn(async move { chunk.generate_mesh() })))
-        .id()
+    let entity = commands.spawn().insert(chunk.clone()).id();
+
+    task_pool
+        .spawn(async move {
+            let mesh = chunk.generate_mesh();
+            let computed_chunk = ComputedChunk::new(entity, chunk, mesh);
+            sender.0.send(computed_chunk).unwrap();
+        })
+        .detach();
+
+    entity
 }
 
 pub fn render_terrain_system(
-    mut terrains: Query<(Entity, &Chunk, &mut ComputeMesh)>,
+    // mut terrains: Query<(Entity, &Chunk, &mut ComputeMesh)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut commands: Commands,
+    receiver: Res<ComputedChunkReceiver>,
 ) {
-    for (entity, chunk, mut task) in &mut terrains {
-        if let Some(mesh) = future::block_on(future::poll_once(&mut task.0)) {
-            commands
-                .entity(entity)
-                .remove::<ComputeMesh>()
-                .insert(Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh).unwrap())
-                .insert_bundle(PbrBundle {
-                    mesh: meshes.add(mesh.clone()),
-                    material: materials.add(Color::WHITE.into()),
-                    transform: Transform::from_translation(chunk.position()),
-                    ..default()
-                });
-        }
+    for chunk in receiver.0.try_iter() {
+        commands
+            .entity(chunk.entity)
+            .insert(Collider::from_bevy_mesh(&chunk.mesh, &ComputedColliderShape::TriMesh).unwrap())
+            .insert_bundle(PbrBundle {
+                mesh: meshes.add(chunk.mesh),
+                material: materials.add(Color::WHITE.into()),
+                transform: Transform::from_translation(chunk.chunk.position()),
+                ..default()
+            });
     }
 }
 
 pub fn request_terrain_system(
     mut loaders: Query<(&Transform, &mut Loader)>,
     mut commands: Commands,
+    sender: Res<ComputedChunkSender>,
 ) {
     // assume there's only one loader
     let (transform, mut loader) = match loaders.iter_mut().next() {
@@ -158,7 +190,7 @@ pub fn request_terrain_system(
                     continue;
                 }
 
-                let entity = create_terrain(&mut commands, chunk.clone());
+                let entity = create_terrain(&mut commands, (*sender).clone(), chunk.clone());
 
                 loader.chunks.insert(chunk, entity);
             }
