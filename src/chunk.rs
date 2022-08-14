@@ -13,9 +13,9 @@ use crate::voxel::Voxel;
 
 // 32 x 64 x 32 voxels in a chunk
 #[cfg(target_arch = "wasm32")]
-const CHUNK_VOXELS: UVec3 = UVec3::new(8, 64, 8);
+const CHUNK_VOXELS: UVec3 = UVec3::new(8, 32, 8);
 #[cfg(not(target_arch = "wasm32"))]
-const CHUNK_VOXELS: UVec3 = UVec3::new(32, 64, 32);
+const CHUNK_VOXELS: UVec3 = UVec3::new(32, 32, 32);
 
 // block mesh parameters; +2 of chunk size as block-mesh requires 1-voxel boundary padding for each side
 const CHUNK_SHAPE_SIZE_X: u32 = CHUNK_VOXELS.x + 2;
@@ -75,9 +75,18 @@ impl Chunk {
         let voxels: Vec<_> = (0..ChunkShape::SIZE)
             .map(|i| {
                 let [x, y, z] = ChunkShape::delinearize(i);
+
+                if (x == 0 || x == CHUNK_SHAPE_SIZE_X - 1)
+                    || (y == 0 || y == CHUNK_SHAPE_SIZE_Y - 1)
+                    || (z == 0 || z == CHUNK_SHAPE_SIZE_Z - 1)
+                {
+                    // padding
+                    return Voxel::EMPTY;
+                }
+
                 let (base_x, base_y, base_z) = self.voxel_coord();
                 let (x, y, z) = (base_x + x as i64, base_y + y as i64, base_z + z as i64);
-                generate_voxels(x, y, z)
+                generate_voxels(x - 1, y - 1, z - 1)
             })
             .collect();
 
@@ -108,14 +117,14 @@ impl Chunk {
                 let face_colors: Vec<_> = face_positions
                     .iter()
                     .map(|_| {
-                        let i = ChunkShape::linearize(quad.minimum.map(|v| v - 1).into());
+                        let i = ChunkShape::linearize(quad.minimum.map(|v| v).into());
                         let voxel = voxels[i as usize];
                         match voxel.value() {
                             Some(v) => {
                                 let c = color(v as f32 / 10.0);
                                 [c.r(), c.g(), c.b(), 1.0]
                             }
-                            None => [0.0, 0.0, 0.0, 0.0],
+                            None => unreachable!(),
                         }
                     })
                     .collect();
@@ -164,10 +173,10 @@ fn color(level: f32) -> Color {
         Color::rgba(0.0, level * 2.0, 0.5 + level * 2.0, 1.0)
     } else if level > 0.1 && level <= 0.3 {
         Color::rgba(1.0 - level * 0.1, 1.0 - level, 1.0 - level, 1.0)
-    } else if level > 0.3 && level <= 0.8 {
+    } else if level > 0.3 && level < 0.8 {
         Color::rgba(0.1, 1.0 - level, 0.1, 1.0)
     } else {
-        Color::rgba(0.5 - (level - 0.8), 0.3 - (level - 0.8), 0.0, 1.0)
+        Color::rgba(0.4 - (level - 0.8), 0.2 - (level - 0.8), 0.0, 1.0)
     }
 }
 
@@ -175,7 +184,8 @@ fn generate_voxels(x: i64, y: i64, z: i64) -> Voxel {
     let g = crate::map::ProcGen::new(crate::map::map_cfg());
     let v = g.gen(x, z);
 
-    if y as f32 <= v * 10.0 + 1.0 {
+    assert!(y >= 0);
+    if y as f32 <= v * 10.0 {
         Voxel::new(y as u64)
     } else {
         Voxel::EMPTY
