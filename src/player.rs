@@ -23,15 +23,15 @@ pub fn create_player(
         .insert(ExternalImpulse::default())
         .insert(LockedAxes::ROTATION_LOCKED)
         .insert(Friction {
-            coefficient: 10.0,
+            coefficient: 0.0,
             combine_rule: CoefficientCombineRule::Min,
         })
-        .insert(Collider::cuboid(0.4, 0.4, 0.4))
+        .insert(Collider::cuboid(0.5, 0.5, 0.5))
         .insert(GravityScale(3.0))
         .insert(Ccd::enabled())
         .insert(Velocity::zero())
         .insert_bundle(PbrBundle {
-            mesh: meshes.add(shape::Box::new(0.8, 0.8, 0.8).into()),
+            mesh: meshes.add(shape::Box::new(1.0, 1.0, 1.0).into()),
             material: materials.add(Color::RED.into()),
             transform,
             ..default()

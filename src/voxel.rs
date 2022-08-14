@@ -10,6 +10,10 @@ impl Voxel {
         Self(Some(value))
     }
 
+    pub fn value(&self) -> Option<u64> {
+        self.0
+    }
+
     fn is_empty(&self) -> bool {
         self.0.is_none()
     }

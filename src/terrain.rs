@@ -105,7 +105,7 @@ pub fn render_terrain_system(
                 .insert(Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh).unwrap())
                 .insert_bundle(PbrBundle {
                     mesh: meshes.add(mesh.clone()),
-                    material: materials.add(Color::GRAY.into()),
+                    material: materials.add(Color::WHITE.into()),
                     transform: Transform::from_translation(chunk.position()),
                     ..default()
                 });

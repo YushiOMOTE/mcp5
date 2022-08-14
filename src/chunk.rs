@@ -95,14 +95,31 @@ impl Chunk {
         let mut indices = Vec::with_capacity(num_indices);
         let mut positions = Vec::with_capacity(num_vertices);
         let mut normals = Vec::with_capacity(num_vertices);
+        let mut colors = Vec::with_capacity(num_vertices);
 
         for (group, face) in buffer.quads.groups.into_iter().zip(faces.into_iter()) {
             for quad in group.into_iter() {
                 // construct vectors for mesh
-                let i = face.quad_mesh_indices(positions.len() as u32);
-                indices.extend_from_slice(&i);
-                let p = face.quad_mesh_positions(&quad, Self::voxel_size());
-                positions.extend_from_slice(&p);
+                let face_indices = face.quad_mesh_indices(positions.len() as u32);
+                let face_positions = face.quad_mesh_positions(&quad, Self::voxel_size());
+                let face_colors: Vec<_> = face_positions
+                    .iter()
+                    .map(|_| {
+                        let i = ChunkShape::linearize(quad.minimum.map(|v| v - 1).into());
+                        let voxel = voxels[i as usize];
+                        match voxel.value() {
+                            Some(v) => {
+                                let c = color(v as f32 / 10.0);
+                                [c.r(), c.g(), c.b(), 1.0]
+                            }
+                            None => [0.0, 0.0, 0.0, 0.0],
+                        }
+                    })
+                    .collect();
+
+                indices.extend_from_slice(&face_indices);
+                positions.extend_from_slice(&face_positions);
+                colors.extend_from_slice(&face_colors);
                 normals.extend_from_slice(&face.quad_mesh_normals());
             }
         }
@@ -121,6 +138,10 @@ impl Chunk {
             Mesh::ATTRIBUTE_UV_0,
             VertexAttributeValues::Float32x2(vec![[0.0; 2]; num_vertices]),
         );
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_COLOR,
+            VertexAttributeValues::Float32x4(colors),
+        );
         mesh.set_indices(Some(Indices::U32(indices.clone())));
 
         mesh
@@ -135,11 +156,24 @@ impl Chunk {
     }
 }
 
+fn color(level: f32) -> Color {
+    if level <= 0.1 {
+        Color::rgba(0.0, level * 2.0, 0.5 + level * 2.0, 1.0)
+    } else if level > 0.1 && level <= 0.3 {
+        Color::rgba(1.0 - level * 0.1, 1.0 - level, 1.0 - level, 1.0)
+    } else if level > 0.3 && level <= 0.8 {
+        Color::rgba(0.1, 1.0 - level, 0.1, 1.0)
+    } else {
+        Color::rgba(0.5 - (level - 0.8), 0.3 - (level - 0.8), 0.0, 1.0)
+    }
+}
+
 fn generate_voxels(x: i64, y: i64, z: i64) -> Voxel {
     let g = crate::map::ProcGen::new(crate::map::map_cfg());
     let v = g.gen(x, z);
-    if (y as f32) <= v * 10.0 + 1.0 {
-        Voxel::new((v * 10.0) as u64)
+
+    if y as f32 <= v * 10.0 + 1.0 {
+        Voxel::new(y as u64)
     } else {
         Voxel::EMPTY
     }
