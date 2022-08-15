@@ -21,7 +21,7 @@ fn setup(
         &mut commands,
         &mut meshes,
         &mut materials,
-        Transform::from_xyz(0.0, 50.0, 0.0),
+        Transform::from_xyz(0.0, 100.0, 0.0),
     );
 }
 

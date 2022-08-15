@@ -1,11 +1,22 @@
 use noise::{NoiseFn, Perlin, Seedable};
 
-pub fn map_cfg() -> GenConfig {
+pub fn local_level_cfg() -> GenConfig {
     GenConfig {
         seed: 0,
         redistribution: 1.0,
         freq: 20_000.0,
         octaves: 3,
+        max_width: 1_000_000,
+        origin: (500_000, 500_000),
+    }
+}
+
+pub fn global_level_cfg() -> GenConfig {
+    GenConfig {
+        seed: 0,
+        redistribution: 1.0,
+        freq: 2_000.0,
+        octaves: 4,
         max_width: 1_000_000,
         origin: (500_000, 500_000),
     }
@@ -50,6 +61,8 @@ impl ProcGen {
             acc + modifier * self.perlin.get([nx * freq * power, ny * freq * power])
         });
 
-        (((value.powf(redist) + 1.0) / 2.0) as f32).max(0.0)
+        (((value.powf(redist) + 1.0) / 2.0) as f32)
+            .max(0.0)
+            .min(1.0)
     }
 }

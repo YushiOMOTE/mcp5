@@ -13,7 +13,7 @@ use crate::voxel::Voxel;
 
 // 32 x 64 x 32 voxels in a chunk
 #[cfg(target_arch = "wasm32")]
-const CHUNK_VOXELS: UVec3 = UVec3::new(8, 32, 8);
+const CHUNK_VOXELS: UVec3 = UVec3::new(8, 8, 8);
 #[cfg(not(target_arch = "wasm32"))]
 const CHUNK_VOXELS: UVec3 = UVec3::new(32, 32, 32);
 
@@ -71,7 +71,13 @@ impl Chunk {
         1.0
     }
 
-    pub fn generate_mesh(&self) -> Mesh {
+    /// Avoid unnecessary drawing
+    pub fn is_empty(&self) -> bool {
+        // TODO: Find more generic approach
+        self.y != 0 && self.y != 1
+    }
+
+    pub fn generate_mesh(&self) -> Option<Mesh> {
         let voxels: Vec<_> = (0..ChunkShape::SIZE)
             .map(|i| {
                 let [x, y, z] = ChunkShape::delinearize(i);
@@ -89,6 +95,9 @@ impl Chunk {
                 generate_voxels(x - 1, y - 1, z - 1)
             })
             .collect();
+        if voxels.iter().all(|v| v.is_empty()) {
+            return None;
+        }
 
         let mut buffer = GreedyQuadsBuffer::new(voxels.len());
 
@@ -121,7 +130,7 @@ impl Chunk {
                         let voxel = voxels[i as usize];
                         match voxel.value() {
                             Some(v) => {
-                                let c = color(v as f32 / 10.0);
+                                let c = color(v);
                                 [c.r(), c.g(), c.b(), 1.0]
                             }
                             None => unreachable!(),
@@ -156,7 +165,7 @@ impl Chunk {
         );
         mesh.set_indices(Some(Indices::U32(indices.clone())));
 
-        mesh
+        Some(mesh)
     }
 
     fn voxel_coord(&self) -> (i64, i64, i64) {
@@ -168,24 +177,73 @@ impl Chunk {
     }
 }
 
-fn color(level: f32) -> Color {
-    if level <= 0.1 {
-        Color::rgba(0.0, level * 2.0, 0.5 + level * 2.0, 1.0)
-    } else if level > 0.1 && level <= 0.3 {
-        Color::rgba(1.0 - level * 0.1, 1.0 - level, 1.0 - level, 1.0)
-    } else if level > 0.3 && level < 0.8 {
-        Color::rgba(0.1, 1.0 - level, 0.1, 1.0)
+fn color(level: u64) -> Color {
+    let c = if level < 22 {
+        let g = colorgrad::CustomGradient::new()
+            .colors(&[
+                colorgrad::Color::from_rgba8(0, 0, 30, 255),
+                colorgrad::Color::from_rgba8(30, 30, 200, 255),
+            ])
+            .build()
+            .unwrap();
+        g.at(level as f64 / 22.0)
+    } else if level >= 22 && level <= 24 {
+        let g = colorgrad::CustomGradient::new()
+            .colors(&[
+                colorgrad::Color::from_rgba8(195, 182, 153, 255),
+                colorgrad::Color::from_rgba8(190, 153, 72, 255),
+            ])
+            .build()
+            .unwrap();
+        g.at((level as f64 - 22.0) / 2.0)
+    } else if level > 24 && level <= 29 {
+        let g = colorgrad::CustomGradient::new()
+            .colors(&[
+                colorgrad::Color::from_rgba8(0, 114, 0, 255),
+                colorgrad::Color::from_rgba8(0, 20, 0, 255),
+            ])
+            .build()
+            .unwrap();
+        g.at((level as f64 - 25.0) / 4.0)
+    } else if level <= 50 {
+        let g = colorgrad::CustomGradient::new()
+            .colors(&[
+                colorgrad::Color::from_rgba8(207, 105, 17, 255),
+                colorgrad::Color::from_rgba8(105, 52, 5, 255),
+            ])
+            .build()
+            .unwrap();
+        g.at((level as f64 - 30.0) / 20.0)
     } else {
-        Color::rgba(0.4 - (level - 0.8), 0.2 - (level - 0.8), 0.0, 1.0)
-    }
+        let g = colorgrad::CustomGradient::new()
+            .colors(&[
+                colorgrad::Color::from_rgba8(69, 64, 59, 255),
+                colorgrad::Color::from_rgba8(30, 30, 30, 255),
+            ])
+            .build()
+            .unwrap();
+        g.at((level as f64 - 50.0) / 14.0)
+    };
+    Color::rgba(c.r as f32, c.g as f32, c.b as f32, 1.0)
 }
 
 fn generate_voxels(x: i64, y: i64, z: i64) -> Voxel {
-    let g = crate::map::ProcGen::new(crate::map::map_cfg());
-    let v = g.gen(x, z);
+    let g = crate::map::ProcGen::new(crate::map::local_level_cfg());
+    let local_level = g.gen(x, z);
+    let local_level = (local_level * 10.0) as i64;
+    let g = crate::map::ProcGen::new(crate::map::global_level_cfg());
+    let global_level = g.gen(x, z);
+    let global_level = (global_level * 10.0) as i64;
+    let level = if global_level <= 5 {
+        let v = global_level.saturating_sub(1);
+        v * v + local_level * 4 / 10
+    } else if global_level <= 8 {
+        20 + local_level
+    } else {
+        30 + local_level * local_level / 3
+    };
 
-    assert!(y >= 0);
-    if y as f32 <= v * 10.0 {
+    if y <= level {
         Voxel::new(y as u64)
     } else {
         Voxel::EMPTY

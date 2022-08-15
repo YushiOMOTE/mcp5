@@ -4,15 +4,10 @@ use bevy_rapier3d::prelude::*;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use std::collections::HashMap;
 
-fn mask_y(mut vec: Vec3) -> Vec3 {
-    vec.y = 0.0;
-    vec
-}
-
 #[derive(Debug, Component)]
 pub struct Loader {
-    load_radius: f32,
-    update_radius: f32,
+    load_range: Vec3,
+    update_range: Vec3,
     last_pos: Option<Vec3>,
     chunks: HashMap<Chunk, Entity>,
 }
@@ -20,8 +15,8 @@ pub struct Loader {
 impl Loader {
     pub fn new() -> Self {
         Self {
-            load_radius: Chunk::size().x * 4.0,
-            update_radius: Chunk::size().x * 0.5,
+            load_range: Chunk::size() * 4.0,
+            update_range: Chunk::size() * 0.5,
             last_pos: None,
             chunks: HashMap::new(),
         }
@@ -30,7 +25,12 @@ impl Loader {
     pub fn try_update(&mut self, new_pos: Vec3) -> bool {
         match self.last_pos.as_mut() {
             Some(last_pos) => {
-                let needs_update = new_pos.distance(*last_pos) > self.update_radius;
+                let needs_update = {
+                    let diff = (new_pos - *last_pos).abs();
+                    diff.x > self.update_range.x
+                        || diff.y > self.update_range.y
+                        || diff.z > self.update_range.z
+                };
 
                 if needs_update {
                     *last_pos = new_pos;
@@ -46,12 +46,8 @@ impl Loader {
     }
 
     fn range(&self) -> Option<Range> {
-        self.last_pos.map(|last_pos| {
-            Range::new(
-                mask_y(last_pos - self.load_radius),
-                mask_y(last_pos + self.load_radius),
-            )
-        })
+        self.last_pos
+            .map(|last_pos| Range::new(last_pos - self.load_range, last_pos + self.load_range))
     }
 }
 
@@ -107,16 +103,24 @@ impl Plugin for TerrainGenPlugin {
     }
 }
 
-pub fn create_terrain(commands: &mut Commands, sender: ComputedChunkSender, chunk: Chunk) -> Entity {
+pub fn create_terrain(
+    commands: &mut Commands,
+    sender: ComputedChunkSender,
+    chunk: Chunk,
+) -> Entity {
     let task_pool = AsyncComputeTaskPool::get();
 
     let entity = commands.spawn().insert(chunk.clone()).id();
 
     task_pool
         .spawn(async move {
-            let mesh = chunk.generate_mesh();
+            let mesh = match chunk.generate_mesh() {
+                Some(m) => m,
+                None => return,
+            };
+
             let computed_chunk = ComputedChunk::new(entity, chunk, mesh);
-            sender.0.send(computed_chunk).unwrap();
+            let _ = sender.0.send(computed_chunk);
         })
         .detach();
 
@@ -124,13 +128,24 @@ pub fn create_terrain(commands: &mut Commands, sender: ComputedChunkSender, chun
 }
 
 pub fn render_terrain_system(
-    // mut terrains: Query<(Entity, &Chunk, &mut ComputeMesh)>,
+    loaders: Query<&Loader>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut commands: Commands,
     receiver: Res<ComputedChunkReceiver>,
 ) {
+        // assume there's only one loader
+    let loader = match loaders.iter().next() {
+        Some(l) => l,
+        None => return,
+    };
+
     for chunk in receiver.0.try_iter() {
+        if !loader.chunks.contains_key(&chunk.chunk) {
+            // chunk is already removed
+            continue;
+        }
+
         commands
             .entity(chunk.entity)
             .insert(ColliderMassProperties::Density(100000.0))
@@ -155,7 +170,7 @@ pub fn request_terrain_system(
         None => return,
     };
 
-    let pos = mask_y(transform.translation);
+    let pos = transform.translation;
 
     if !loader.try_update(pos) {
         // no updates required
@@ -178,22 +193,29 @@ pub fn request_terrain_system(
     let chunk_min = Chunk::from_world_coord(range.min);
     let chunk_max = Chunk::from_world_coord(range.max);
 
-    for x in chunk_min.x..=chunk_max.x {
-        for y in chunk_min.y..=chunk_max.y {
-            for z in chunk_min.z..=chunk_max.z {
-                let chunk = Chunk::new(x, y, z);
+    let mut chunks: Vec<_> = (chunk_min.x..=chunk_max.x)
+        .map(|x| {
+            (chunk_min.y..=chunk_max.y)
+                .map(move |y| (chunk_min.z..=chunk_max.z).map(move |z| (x, y, z)))
+                .flatten()
+        })
+        .flatten()
+        .map(|(x, y, z)| Chunk::new(x, y, z))
+        .filter(|c| !c.is_empty())
+        .collect();
 
-                if !range.contains(chunk.position()) {
-                    continue;
-                }
-                if loader.chunks.contains_key(&chunk) {
-                    continue;
-                }
+    chunks.sort_by_key(|chunk| (chunk.position().distance(pos) * 1000.0) as i64);
 
-                let entity = create_terrain(&mut commands, (*sender).clone(), chunk.clone());
-
-                loader.chunks.insert(chunk, entity);
-            }
+    for chunk in chunks {
+        if !range.contains(chunk.position()) {
+            continue;
         }
+        if loader.chunks.contains_key(&chunk) {
+            continue;
+        }
+
+        let entity = create_terrain(&mut commands, (*sender).clone(), chunk.clone());
+
+        loader.chunks.insert(chunk, entity);
     }
 }
