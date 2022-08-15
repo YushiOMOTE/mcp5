@@ -74,7 +74,7 @@ impl Chunk {
     /// Avoid unnecessary drawing
     pub fn is_empty(&self) -> bool {
         // TODO: Find more generic approach
-        self.y != 0 && self.y != 1
+        self.y < 0 || self.y >= 64 / (CHUNK_VOXELS.y as i64)
     }
 
     pub fn generate_mesh(&self) -> Option<Mesh> {
